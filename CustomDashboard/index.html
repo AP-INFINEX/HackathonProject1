@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Custom Dashboard</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <!-- Greeting -->
+  <div class="greeting">
+    <h1>Hello, Prasant!</h1>
+  </div>
+
+  <!-- Weather (top-right) -->
+  <div class="weather">
+    <div id="weather-location">Loading...</div>
+    <div id="weather-temp"></div>
+    <div id="weather-condition"></div>
+  </div>
+
+  <!-- Quote -->
+  <div class="quote-container">
+    <p id="quote">Loading motivational quote...</p>
+  </div>
+
+  <!-- Tasks -->
+  <div class="tasks">
+    <input type="text" id="task-input" placeholder="Add a new task and press Enter">
+  </div>
+
+  <!-- Links (top-left or top-right depending on style) -->
+  <div class="links">
+    <a href="https://www.google.com" target="_blank">Google</a>
+    <a href="https://www.github.com" target="_blank">GitHub</a>
+  </div>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
