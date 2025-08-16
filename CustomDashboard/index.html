@@ -4,37 +4,35 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Custom Dashboard</title>
-  <link rel="stylesheet" href="./style.css">
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <!-- Greeting -->
-  <div class="greeting">
-    <h1>Hello, Prasant!</h1>
+  <div class="overlay">
+    <!-- Top bar -->
+    <div class="top-bar">
+      <button id="links-btn" class="links-btn">Links</button>
+      <div id="weather" class="weather">
+        <span id="weather-temp">--°C</span>
+        <span id="weather-condition">---</span>
+      </div>
+    </div>
+
+    <!-- Center content -->
+    <div class="center">
+      <h1 id="greeting">Hello, Prasant!</h1>
+      <p id="date"></p>
+      <p id="time"></p>
+      <p id="quote">Loading quote...</p>
+    </div>
+
+    <!-- Tasks -->
+    <div class="tasks">
+      <input type="text" id="task-input" placeholder="Add a task and press Enter">
+      <ul id="task-list"></ul>
+    </div>
   </div>
 
-  <!-- Weather (top-right) -->
-  <div class="weather">
-    <div id="weather-location">Loading...</div>
-    <div id="weather-temp"></div>
-    <div id="weather-condition"></div>
-  </div>
-
-  <!-- Quote -->
-  <div class="quote-container">
-    <p id="quote">Loading motivational quote...</p>
-  </div>
-
-  <!-- Tasks -->
-  <div class="tasks">
-    <input type="text" id="task-input" placeholder="Add a new task and press Enter">
-  </div>
-
-  <!-- Links (top-left or top-right depending on style) -->
-  <div class="links">
-    <a href="https://www.google.com" target="_blank">Google</a>
-    <a href="https://www.github.com" target="_blank">GitHub</a>
-  </div>
-
-  <script type="module" src="./app.js"></script>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
