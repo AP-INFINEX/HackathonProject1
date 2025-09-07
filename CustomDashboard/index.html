@@ -10,6 +10,9 @@
   <div class="overlay">
     <!-- Top bar -->
     <div class="top-bar">
+      <div class="top-center">
+        <input id="search-bar" class="search-bar" type="text" placeholder="Search Google...">
+      </div>
       <button id="links-btn" class="links-btn">Links</button>
       <div id="weather" class="weather">
         <span id="weather-temp">--°C</span>
@@ -17,11 +20,17 @@
       </div>
     </div>
 
+    <!-- Links dropdown -->
+    <div id="links-dropdown" class="links-dropdown">
+      <button id="add-link-btn" class="add-link-btn">+ Add Link</button>
+      <div class="links-list"></div>
+    </div>
+
     <!-- Center content -->
     <div class="center">
       <h1 id="greeting">Hello, Anubhav!</h1>
-      <p id="date"></p>
       <p id="time"></p>
+      <p id="date"></p>
       <p id="quote">Loading quote...</p>
     </div>
 
@@ -31,7 +40,6 @@
       <ul id="task-list"></ul>
     </div>
   </div>
-
   <script src="config.js"></script>
   <script src="app.js"></script>
 </body>

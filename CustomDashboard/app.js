@@ -40,7 +40,7 @@ function updateTime() {
   if (hour < 12) greeting = 'Good Morning';
   else if (hour < 18) greeting = 'Good Afternoon';
   else greeting = 'Good Evening';
-  greetingEl.textContent = `${greeting}, Prasant!`;
+  greetingEl.textContent = `${greeting}, Anubhav!`;
 }
 
 updateTime();
@@ -120,6 +120,7 @@ taskInput.addEventListener('keydown', (e) => {
 
 // ---------- 7. Links ----------
 const linksBtn = document.getElementById('links-btn');
+const linksDropdown = document.getElementById('links-dropdown');
 const LINKS_KEY = 'customDashboardLinks';
 let links = JSON.parse(localStorage.getItem(LINKS_KEY)) || [];
 
@@ -127,11 +128,72 @@ function saveLinks() {
   localStorage.setItem(LINKS_KEY, JSON.stringify(links));
 }
 
+function renderLinks() {
+  linksDropdown.innerHTML = '<div class="links-list"></div>';
+  const linksList = linksDropdown.querySelector('.links-list');
+  if (links.length === 0) {
+    linksList.innerHTML = '<span style="color:#ccc;">No links saved.</span>';
+    return;
+  }
+  links.forEach((url, idx) => {
+    const item = document.createElement('div');
+    item.className = 'link-item';
+
+    const a = document.createElement('a');
+    a.href = url;
+    a.textContent = url;
+    a.target = '_blank';
+
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'remove-link';
+    removeBtn.innerHTML = '&times;';
+    removeBtn.title = 'Remove link';
+    removeBtn.onclick = (e) => {
+      e.stopPropagation();
+      links.splice(idx, 1);
+      saveLinks();
+      renderLinks();
+    };
+
+    item.appendChild(a);
+    item.appendChild(removeBtn);
+    linksList.appendChild(item);
+  });
+}
+renderLinks();
+
 linksBtn.addEventListener('click', () => {
+  linksDropdown.classList.toggle('show');
+  renderLinks();
+});
+
+// Hide dropdown when clicking outside
+document.addEventListener('click', (e) => {
+  if (!linksDropdown.contains(e.target) && e.target !== linksBtn) {
+    linksDropdown.classList.remove('show');
+  }
+});
+
+// Add new link
+const addLinkBtn = document.getElementById('add-link-btn');
+addLinkBtn.addEventListener('click', function() {
   const url = prompt('Enter URL to add to links:');
   if (url && !links.includes(url)) {
     links.push(url);
     saveLinks();
-    alert(`Added: ${url}`);
+    renderLinks();
+    linksDropdown.classList.add('show');
   }
 });
+
+// ---------- 8. Search Bar ----------
+const searchBar = document.getElementById('search-bar');
+searchBar.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' && searchBar.value.trim() !== '') {
+    e.preventDefault();
+    const query = encodeURIComponent(searchBar.value.trim());
+    window.open(`https://www.google.com/search?q=${query}`, '_blank');
+    searchBar.value = '';
+  }
+});
+
