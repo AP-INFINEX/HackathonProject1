@@ -121,18 +121,20 @@ taskInput.addEventListener('keydown', (e) => {
 // ---------- 7. Links ----------
 const linksBtn = document.getElementById('links-btn');
 const linksDropdown = document.getElementById('links-dropdown');
+const addLinkBtn = document.getElementById('add-link-btn');
 const LINKS_KEY = 'customDashboardLinks';
-let links = JSON.parse(localStorage.getItem(LINKS_KEY)) || [];
+const linksListContainer = linksDropdown ? linksDropdown.querySelector('.links-list') : null;
+let links = JSON.parse(localStorage.getItem(LINKS_KEY) || '[]');
 
 function saveLinks() {
   localStorage.setItem(LINKS_KEY, JSON.stringify(links));
 }
 
 function renderLinks() {
-  linksDropdown.innerHTML = '<div class="links-list"></div>';
-  const linksList = linksDropdown.querySelector('.links-list');
+  if (!linksListContainer) return;
+  linksListContainer.innerHTML = '';
   if (links.length === 0) {
-    linksList.innerHTML = '<span style="color:#ccc;">No links saved.</span>';
+    linksListContainer.innerHTML = '<div class="no-links" style="color:#ccc">No links saved.</div>';
     return;
   }
   links.forEach((url, idx) => {
@@ -143,57 +145,89 @@ function renderLinks() {
     a.href = url;
     a.textContent = url;
     a.target = '_blank';
+    a.rel = 'noopener noreferrer';
 
-    const removeBtn = document.createElement('button');
-    removeBtn.className = 'remove-link';
-    removeBtn.innerHTML = '&times;';
-    removeBtn.title = 'Remove link';
-    removeBtn.onclick = (e) => {
-      e.stopPropagation();
+    const del = document.createElement('button');
+    del.className = 'remove-link';
+    del.type = 'button';
+    del.title = 'Remove link';
+    del.innerText = '×';
+    del.addEventListener('click', (ev) => {
+      ev.stopPropagation();
       links.splice(idx, 1);
       saveLinks();
       renderLinks();
-    };
+    });
 
     item.appendChild(a);
-    item.appendChild(removeBtn);
-    linksList.appendChild(item);
+    item.appendChild(del);
+    linksListContainer.appendChild(item);
   });
 }
+
+// initial render
 renderLinks();
 
-linksBtn.addEventListener('click', () => {
-  linksDropdown.classList.toggle('show');
-  renderLinks();
-});
+// toggle dropdown
+if (linksBtn && linksDropdown) {
+  linksBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    linksDropdown.classList.toggle('show');
+  });
+}
 
-// Hide dropdown when clicking outside
+// add link
+if (addLinkBtn) {
+  addLinkBtn.addEventListener('click', () => {
+    const input = prompt('Enter URL to add (include http:// or https:// or just domain):');
+    if (!input) return;
+    let url = input.trim();
+    // basic normalization
+    try {
+      // if invalid, try to prepend https://
+      new URL(url);
+    } catch (_) {
+      try {
+        url = 'https://' + url;
+        new URL(url);
+      } catch (err) {
+        alert('Invalid URL');
+        return;
+      }
+    }
+    if (!links.includes(url)) {
+      links.push(url);
+      saveLinks();
+      renderLinks();
+      linksDropdown.classList.add('show');
+    } else {
+      alert('Link already saved');
+    }
+  });
+}
+
+// close dropdown when clicking outside
 document.addEventListener('click', (e) => {
-  if (!linksDropdown.contains(e.target) && e.target !== linksBtn) {
+  if (!linksDropdown) return;
+  if (!linksDropdown.contains(e.target) && e.target !== linksBtn && e.target !== addLinkBtn) {
     linksDropdown.classList.remove('show');
   }
 });
 
-// Add new link
-const addLinkBtn = document.getElementById('add-link-btn');
-addLinkBtn.addEventListener('click', function() {
-  const url = prompt('Enter URL to add to links:');
-  if (url && !links.includes(url)) {
-    links.push(url);
-    saveLinks();
-    renderLinks();
-    linksDropdown.classList.add('show');
-  }
-});
-
-// ---------- 8. Search Bar ----------
-const searchBar = document.getElementById('search-bar');
-searchBar.addEventListener('keydown', function(e) {
-  if (e.key === 'Enter' && searchBar.value.trim() !== '') {
-    e.preventDefault();
-    const query = encodeURIComponent(searchBar.value.trim());
-    window.open(`https://www.google.com/search?q=${query}`, '_blank');
-    searchBar.value = '';
+document.addEventListener('DOMContentLoaded', () => {
+  // --- Search bar ---
+  const searchBar = document.getElementById('search-bar');
+  if (searchBar) {
+    searchBar.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const q = searchBar.value.trim();
+        if (!q) return;
+        const query = encodeURIComponent(q);
+        window.open(`https://www.google.com/search?q=${query}`, '_blank');
+        searchBar.value = '';
+      }
+    });
   }
 });
 
