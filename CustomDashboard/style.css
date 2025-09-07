@@ -6,7 +6,7 @@
 }
 
 body {
-  font-family: 'Arial', sans-serif;
+  font-family: Arial, sans-serif;
   width: 100vw;
   height: 100vh;
   background: url('icons/fallback-bg.jpg') no-repeat center center fixed;
@@ -60,7 +60,7 @@ body {
   box-shadow: 0 0 14px 3px rgba(255,255,255,0.95);
 }
 
-/* Links button */
+/* Links button (use border-only hover further down) */
 .links-btn {
   background: rgba(128,128,128,0.6);
   border: none;
@@ -68,14 +68,7 @@ body {
   border-radius: 5px;
   color: white;
   cursor: pointer;
-  transition: box-shadow 0.3s, background 0.3s;
   z-index: 2;
-}
-
-.links-btn:hover {
-  background: #4fc3f7;
-  box-shadow: 0 0 10px 2px #4fc3f7;
-  color: #fff;
 }
 
 /* Links dropdown */
@@ -120,7 +113,9 @@ body {
   color: #fff;
   text-decoration: none;
   font-size: 15px;
+  /* safer fallback for wrapping */
   overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .remove-link {
@@ -149,7 +144,6 @@ body {
 
 .add-link-btn:hover {
   border-color: #4fc3f7;
-  box-shadow: none;
 }
 
 /* Center content */
@@ -158,8 +152,8 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
-  height: 65vh;      /* Reduce height to move content up */
-  margin-top: 2vh; /* Reduce margin to move content up */
+  height: 65vh;
+  margin-top: 2vh;
 }
 
 h1, #time, #date, #weather {
@@ -204,25 +198,32 @@ h1 {
   text-shadow: 0 0 10px rgba(255,255,255,0.9);
 }
 
+#quote .quote-text { font-size: 22px; }
+#quote .quote-author { margin-top: 8px; font-size: 16px; opacity: 0.85; }
+
+/* Weather: text-only glow on hover (apply to parent and children) */
 #weather {
   font-size: 16px;
   font-weight: 600;
-  display: inline-block;
+  display: inline-block; /* allow hover effect to apply visibly */
   background: none;
   padding: 0;
   border-radius: 0;
   transition: text-shadow 0.25s;
-}
-
-#weather span {
-  transition: text-shadow 0.25s;
+  text-shadow: none;
   color: #fff;
 }
 
-/* apply text-shadow to parent and all children on hover to guarantee visibility */
+/* ensure children inherit transition */
+#weather span {
+  transition: text-shadow 0.25s, color 0.25s;
+}
+
+/* apply visible white glow to parent and all children on hover */
 #weather:hover,
 #weather:hover * {
-  text-shadow: 0 0 16px rgba(255,255,255,0.95), 0 0 8px rgba(255,255,255,0.8);
+  text-shadow: 0 0 18px rgba(255,255,255,0.95), 0 0 8px rgba(255,255,255,0.8);
+  color: #ffffff;
 }
 
 /* Tasks */
@@ -242,27 +243,7 @@ h1 {
   transition: box-shadow 0.3s, border 0.3s, background 0.3s;
 }
 
-#task-input:hover {
-  background: #4fc3f7;
-  box-shadow: 0 0 10px 2px #4fc3f7;
-  color: #fff;
-  border: 2px solid #4fc3f7;
-}
-
-#task-list li {
-  list-style: none;
-  padding: 5px 8px;
-  margin-top: 5px;
-  background: rgba(0,0,0,0.4);
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 16px;
-}
-
-#task-list li:hover {
-  background: rgba(255,255,255,0.2);
-}
-
+/* Buttons and inputs: only border glow on hover */
 .links-btn,
 .add-link-btn,
 #task-input {
@@ -279,8 +260,22 @@ h1 {
   color: inherit;
 }
 
-/* --- Fix for search bar and weather hover glow --- */
+#task-list li {
+  list-style: none;
+  padding: 5px 8px;
+  margin-top: 5px;
+  background: rgba(0,0,0,0.4);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+#task-list li:hover {
+  background: rgba(255,255,255,0.2);
+}
+
+/* final small search hover */
 .search-bar:hover,
 .search-bar:focus {
-  box-shadow: 0 0 16px 4px white;
+  box-shadow: 0 0 16px 4px rgba(255,255,255,0.95);
 }
