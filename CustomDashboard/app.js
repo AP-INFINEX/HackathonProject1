@@ -3,7 +3,7 @@
 // Config keys (from config.js)
 // You can also set CONFIG.UNSPLASH_QUERY in config.js to change the background description.
 const UNSPLASH_KEY = (typeof CONFIG !== 'undefined' && CONFIG.UNSPLASH_KEY) ? CONFIG.UNSPLASH_KEY : null;
-const UNSPLASH_QUERY = (typeof CONFIG !== 'undefined' && CONFIG.UNSPLASH_QUERY) ? CONFIG.UNSPLASH_QUERY : 'dark blurry galaxy raindrops';
+const UNSPLASH_QUERY = (typeof CONFIG !== 'undefined' && CONFIG.UNSPLASH_QUERY) ? CONFIG.UNSPLASH_QUERY : 'galaxy dark';
 const WEATHER_KEY = (typeof CONFIG !== 'undefined' && CONFIG.WEATHER_KEY) ? CONFIG.WEATHER_KEY : null;
 
 document.addEventListener('DOMContentLoaded', () => {
