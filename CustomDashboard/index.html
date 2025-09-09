@@ -4,9 +4,21 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Anubhav's Custom Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <!-- Page Loader -->
+  <div class="page-loader" id="pageLoader">
+    <div class="loader-content">
+      <div class="loader-spinner"></div>
+      <div class="loader-text">Loading Dashboard...</div>
+    </div>
+  </div>
+  
   <div class="overlay">
     <!-- Top bar -->
     <div class="top-bar">
@@ -28,10 +40,16 @@
 
     <!-- Center content -->
     <div class="center">
-      <h1 id="greeting">Hello, Anubhav!</h1>
-      <p id="time"></p>
-      <p id="date"></p>
-      <p id="quote">Loading quote...</p>
+      <div class="typing-container">
+        <h1 id="greeting">
+          <span class="greeting-prefix">Good Evening, </span>
+          <span class="typing-text" id="typingText"></span>
+          <span class="cursor-blink" id="cursorBlink"></span>
+        </h1>
+      </div>
+      <p id="time">Loading...</p>
+      <p id="date">Loading...</p>
+      <div id="quote">Loading quote...</div>
     </div>
 
     <!-- Tasks -->
@@ -39,8 +57,10 @@
       <input type="text" id="task-input" placeholder="Add a task and press Enter">
       <ul id="task-list"></ul>
     </div>
+
+    
   </div>
   <script src="config.js"></script>
-  <script src="app.js"></script>
+  <script src="components.js"></script>
 </body>
 </html>
