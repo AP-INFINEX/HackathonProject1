@@ -828,10 +828,96 @@ body.cursor-blue-blob .cursor-follower {
   margin-right: 4px;
 }
 
-.cursor-blink {
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.typing-container.typing-paused .cursor-blink {
+  animation: none;
+  opacity: 0.5;
+}
+
+.typing-container.typing-done .cursor-blink {
+  animation: none;
+  opacity: 1;
+  background-color: #00b4ff;
+  box-shadow: 0 0 10px #00b4ff, 0 0 20px #00b4ff;
+  border-radius: 50%;
+  width: 8px;
+  height: 8px;
+  margin-left: 5px;
+  position: relative;
+  top: 0;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+/* Custom cursor styles */
+body.custom-cursor {
+  cursor: none;
+}
+
+.custom-cursor {
+  position: fixed;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background-color: rgba(0, 180, 255, 0.8);
+  pointer-events: none;
+  z-index: 9999;
+  transform: translate(-50%, -50%);
+  mix-blend-mode: difference;
+  transition: transform 0.1s ease-out, width 0.2s ease, height 0.2s ease, background-color 0.2s ease;
+  will-change: transform;
+}
+
+.custom-cursor.hover {
+  transform: translate(-50%, -50%) scale(1.5);
+  background-color: rgba(255, 255, 255, 0.9);
+}
+
+.cursor-trail {
+  position: fixed;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: rgba(0, 180, 255, 0.5);
+  pointer-events: none;
+  z-index: 9998;
+  transform: translate(-50%, -50%);
+  transition: transform 0.2s ease-out, width 0.3s ease, height 0.3s ease, opacity 0.3s ease;
+  opacity: 0;
+}
+
+.cursor-trail.visible {
+  opacity: 1;
+}
+
+/* Hide cursor on touch devices */
+@media (hover: none) {
+  body.custom-cursor {
+    cursor: auto;
+  }
+  
+  .custom-cursor,
+  .cursor-trail {
+    display: none !important;
+  }
+}
+
+.typing-container .cursor-blink {
   display: inline-block;
   width: 2px;
-  height: 1em;
+  height: 1.2em;
+  background-color: #00b4ff;
+  margin-left: 2px;
+  vertical-align: middle;
+  position: relative;
+  top: -1px;
+  animation: blink 1s infinite;
+  opacity: 1;
+  transition: opacity 0.2s ease;
   background: var(--primary-cyan);
   margin-left: 4px;
   position: relative;

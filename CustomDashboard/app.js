@@ -742,20 +742,18 @@ function hideLoader() {
       loader.classList.add('hidden');
       setTimeout(() => {
         loader.style.display = 'none';
-      }, 500);
-    }, 1500);
+      }, 300);
+    }, 300);
   }
 }
 
-// Cool typewriter animation cycling through different titles
+// Enhanced typewriter animation with better cursor handling
 function initTypingAnimation() {
+  const typingContainer = document.querySelector('.typing-container');
   const typingText = document.getElementById('typingText');
   const cursorBlink = document.getElementById('cursorBlink');
   
   if (!typingText || !cursorBlink) return;
-  // ensure caret is visible
-  cursorBlink.style.display = 'inline-block';
-  cursorBlink.style.opacity = '1';
   
   const titles = [
     'Anubhav!',
@@ -770,11 +768,15 @@ function initTypingAnimation() {
   let currentIndex = 0;
   let charIndex = 0;
   let isDeleting = false;
+  let isPaused = false;
   let typingSpeed = 100;
   let deleteSpeed = 50;
   let pauseTime = 2000;
   let timeoutId = null;
   let isRunning = true;
+  
+  // Add typing container states
+  typingContainer.classList.add('typing-typing');
   
   function typeEffect() {
     if (!isRunning) return;
@@ -786,9 +788,14 @@ function initTypingAnimation() {
       typingText.textContent = currentTitle.substring(0, charIndex + 1);
       charIndex++;
       
+      // If we've reached the end of the current title
       if (charIndex === currentTitle.length) {
-        // Pause before deleting
+        typingContainer.classList.add('typing-paused');
+        typingContainer.classList.remove('typing-typing');
+        
         timeoutId = setTimeout(() => {
+          typingContainer.classList.remove('typing-paused');
+          typingContainer.classList.add('typing-deleting');
           isDeleting = true;
           typeEffect();
         }, pauseTime);
@@ -799,7 +806,10 @@ function initTypingAnimation() {
       typingText.textContent = currentTitle.substring(0, charIndex - 1);
       charIndex--;
       
+      // If we've deleted the entire title
       if (charIndex === 0) {
+        typingContainer.classList.remove('typing-deleting');
+        typingContainer.classList.add('typing-typing');
         isDeleting = false;
         currentIndex = (currentIndex + 1) % titles.length;
       }
@@ -809,13 +819,127 @@ function initTypingAnimation() {
     timeoutId = setTimeout(typeEffect, speed);
   }
   
-  // Start typing after a short delay
-  setTimeout(typeEffect, 500);
+  // Start the animation after a short delay
+  setTimeout(typeEffect, 1000);
   
-  // Cleanup function to prevent memory leaks
+  // Cleanup function
   return () => {
     isRunning = false;
     if (timeoutId) clearTimeout(timeoutId);
+    typingContainer.classList.remove('typing-typing', 'typing-paused', 'typing-deleting');
+  };
+}
+
+// Custom cursor with smooth trail effect
+function initCustomCursor() {
+  // Don't initialize on touch devices
+  if ('ontouchstart' in window || navigator.maxTouchPoints) {
+    document.body.classList.remove('custom-cursor');
+    return;
+  }
+  
+  // Add custom cursor class to body
+  document.body.classList.add('custom-cursor');
+  
+  // Create cursor element
+  const cursor = document.createElement('div');
+  cursor.className = 'custom-cursor';
+  document.body.appendChild(cursor);
+  
+  // Create trail elements
+  const trailCount = 12;
+  const trails = [];
+  
+  for (let i = 0; i < trailCount; i++) {
+    const trail = document.createElement('div');
+    trail.className = 'cursor-trail';
+    trail.style.opacity = (1 - i / trailCount).toFixed(2);
+    trail.style.transform = `translate(-50%, -50%) scale(${1 - i / trailCount})`;
+    document.body.appendChild(trail);
+    trails.push({ el: trail, x: 0, y: 0 });
+  }
+  
+  // Initialize mouse position at center
+  let mouseX = window.innerWidth / 2;
+  let mouseY = window.innerHeight / 2;
+  let cursorX = mouseX;
+  let cursorY = mouseY;
+  
+  // Update mouse position
+  const handleMouseMove = (e) => {
+    mouseX = e.clientX;
+    mouseY = e.clientY;
+  };
+  
+  document.addEventListener('mousemove', handleMouseMove);
+  
+  // Animation loop
+  const animate = () => {
+    // Smooth cursor movement
+    cursorX += (mouseX - cursorX) * 0.5;
+    cursorY += (mouseY - cursorY) * 0.5;
+    
+    // Update cursor position
+    cursor.style.left = `${cursorX}px`;
+    cursor.style.top = `${cursorY}px`;
+    
+    // Update trail positions with smooth following
+    trails.forEach((trail, i) => {
+      // The first trail follows the cursor directly
+      if (i === 0) {
+        trail.x = cursorX;
+        trail.y = cursorY;
+      } else {
+        // Each subsequent trail follows the previous one with a delay
+        const prev = trails[i - 1];
+        trail.x += (prev.x - trail.x) * 0.2;
+        trail.y += (prev.y - trail.y) * 0.2;
+      }
+      
+      // Apply the position with scaling for depth effect
+      const scale = 0.5 + (i / trailCount) * 0.5;
+      trail.el.style.left = `${trail.x}px`;
+      trail.el.style.top = `${trail.y}px`;
+      trail.el.style.transform = `translate(-50%, -50%) scale(${scale})`;
+      trail.el.style.opacity = (1 - i / trailCount) * 0.5;
+    });
+    
+    requestAnimationFrame(animate);
+  };
+  
+  // Start animation after a short delay
+  setTimeout(() => {
+    animate();
+  }, 100);
+  
+  // Add hover effects
+  const hoverElements = document.querySelectorAll('a, button, .cursor-hover, [data-cursor-hover]');
+  
+  const handleHoverStart = () => {
+    cursor.classList.add('hover');
+  };
+  
+  const handleHoverEnd = () => {
+    cursor.classList.remove('hover');
+  };
+  
+  hoverElements.forEach(el => {
+    el.addEventListener('mouseenter', handleHoverStart);
+    el.addEventListener('mouseleave', handleHoverEnd);
+  });
+  
+  // Cleanup function
+  return () => {
+    document.removeEventListener('mousemove', handleMouseMove);
+    document.body.classList.remove('custom-cursor');
+    cursor.remove();
+    trails.forEach(trail => trail.el.remove());
+    
+    // Remove event listeners
+    hoverElements.forEach(el => {
+      el.removeEventListener('mouseenter', handleHoverStart);
+      el.removeEventListener('mouseleave', handleHoverEnd);
+    });
   };
 }
 
