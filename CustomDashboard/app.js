@@ -732,12 +732,72 @@ function showLoader() {
   const loader = document.getElementById('pageLoader');
   if (loader) {
     loader.classList.remove('hidden');
+    try { window.__loaderShownAt = (window.performance && performance.now) ? performance.now() : Date.now(); } catch (_) { window.__loaderShownAt = Date.now(); }
+
+    // Initialize particles background once when loader is first shown
+    const containerId = 'loaderParticles';
+    const container = document.getElementById(containerId);
+    if (container && !container.__particlesInit) {
+      container.__particlesInit = true;
+      const initParticles = () => {
+        if (!window.particlesJS) return false;
+        window.particlesJS(containerId, {
+          particles: {
+            number: { value: 80, density: { enable: true, value_area: 900 } },
+            color: { value: '#ffffff' },
+            shape: { type: 'circle' },
+            opacity: { value: 0.5 },
+            size: { value: 3, random: true },
+            line_linked: { enable: true, distance: 130, color: '#ffffff', opacity: 0.35, width: 1 },
+            move: { enable: true, speed: 1, direction: 'none', out_mode: 'out', straight: false }
+          },
+          interactivity: {
+            detect_on: 'canvas',
+            events: { onhover: { enable: true, mode: 'grab' }, onclick: { enable: false }, resize: true },
+            modes: { grab: { distance: 140, line_linked: { opacity: 0.6 } } }
+          },
+          retina_detect: true
+        });
+        // Layering
+        setTimeout(() => {
+          const canvas = container.querySelector('canvas');
+          if (canvas) {
+            canvas.style.position = 'absolute';
+            canvas.style.inset = '0';
+            canvas.style.zIndex = '0';
+            canvas.style.background = '#000';
+          }
+          const content = loader.querySelector('.loader-content');
+          if (content) content.style.position = 'relative';
+        }, 0);
+        return true;
+      };
+      // Try immediately and then retry a few times if the library hasn't loaded yet
+      if (!initParticles()) {
+        let tries = 0;
+        const t = setInterval(() => {
+          tries += 1;
+          if (initParticles() || tries > 20) clearInterval(t);
+        }, 100);
+      }
+    }
   }
 }
 
 function hideLoader() {
   const loader = document.getElementById('pageLoader');
   if (loader) {
+    // Enforce a minimum visible duration of 5 seconds
+    try {
+      const now = (window.performance && performance.now) ? performance.now() : Date.now();
+      const shownAt = window.__loaderShownAt || now;
+      const elapsed = now - shownAt;
+      const minVisible = 5000; // 5 seconds
+      if (elapsed < minVisible) {
+        setTimeout(hideLoader, Math.max(0, minVisible - elapsed));
+        return;
+      }
+    } catch (_) {}
     setTimeout(() => {
       loader.classList.add('hidden');
       setTimeout(() => {
@@ -758,6 +818,16 @@ function initTypingAnimation() {
   // Make sure cursor blink is visible and blinking
   cursorBlink.style.opacity = '1';
   cursorBlink.style.animation = 'blink 1s infinite';
+  // Match caret color to the dynamic title color
+  try {
+    const computed = getComputedStyle(typingText).color || '#20c997';
+    cursorBlink.style.backgroundColor = computed;
+    cursorBlink.style.color = computed;
+    cursorBlink.style.borderColor = computed;
+  } catch (_) {}
+  // Smoother appearance
+  typingText.style.transition = 'opacity 0.2s ease';
+  typingText.style.willChange = 'contents, opacity';
   
   const titles = [
     'Anubhav!',
@@ -772,6 +842,7 @@ function initTypingAnimation() {
   let currentIndex = 0;
   let charIndex = 0;
   let isDeleting = false;
+  // Restore previous pacing
   let typingSpeed = 100;
   let deleteSpeed = 50;
   let pauseTime = 2000;
@@ -804,10 +875,16 @@ function initTypingAnimation() {
       }
     }
     
-    const speed = isDeleting ? deleteSpeed : typingSpeed;
-    setTimeout(typeEffect, speed);
+    // Slight randomization for human-like rhythm
+    const jitter = isDeleting ? 10 : 30;
+    const speed = (isDeleting ? deleteSpeed : typingSpeed) + Math.round((Math.random() - 0.5) * jitter);
+    setTimeout(typeEffect, Math.max(20, speed));
   }
   
+  // Ensure no forced min-width remains (revert to original tighter layout)
+  typingText.style.minWidth = '';
+  typingText.style.display = '';
+
   // Start the animation
   setTimeout(typeEffect, 1000);
 }
@@ -827,6 +904,22 @@ function initCustomCursor() {
   let cursorX = 0;
   let cursorY = 0;
   let isActive = false;
+  let destroyTimeoutId = null;
+  let hideNativeCursorStyle = null;
+
+  const enableGlobalCursorHide = () => {
+    if (hideNativeCursorStyle) return;
+    hideNativeCursorStyle = document.createElement('style');
+    hideNativeCursorStyle.type = 'text/css';
+    hideNativeCursorStyle.textContent = '*{cursor:none !important}';
+    document.head.appendChild(hideNativeCursorStyle);
+  };
+  const disableGlobalCursorHide = () => {
+    if (hideNativeCursorStyle && hideNativeCursorStyle.parentNode) {
+      hideNativeCursorStyle.parentNode.removeChild(hideNativeCursorStyle);
+    }
+    hideNativeCursorStyle = null;
+  };
 
   const createCursor = (startX, startY) => {
     // Hide default cursor only while active
@@ -842,7 +935,7 @@ function initCustomCursor() {
       background: radial-gradient(circle at 35% 35%, #34e4c2 0%, #20c997 45%, #0d8b63 100%);
       border-radius: 50%;
       pointer-events: none;
-      z-index: 10000;
+      z-index: 10001; /* above particles canvas */
       transform: translate(-50%, -50%);
       box-shadow: 0 0 28px rgba(32, 201, 151, 0.9);
       transition: opacity 120ms ease, transform 0.12s ease-out;
@@ -851,29 +944,29 @@ function initCustomCursor() {
     document.body.appendChild(cursor);
 
     // Trail (tapered, darker along tail)
-    const trailCount = 14;
+    const trailCount = 18; // denser for more connected look
     trailElements = [];
     for (let i = 0; i < trailCount; i++) {
       const trail = document.createElement('div');
       trail.className = 'cursor-trail';
 
       // Size decreases and gets darker
-      const size = Math.max(6, 28 - i * 1.6);
-      const darkness = Math.min(1, 0.15 + i * 0.055); // more dark further back
-      const opacity = Math.max(0.08, 0.9 - i * 0.055);
+      const size = Math.max(5, 30 - i * 1.4);
+      const darkness = Math.min(1, 0.12 + i * 0.05); // more dark further back
+      const opacity = Math.max(0.06, 0.92 - i * 0.05);
 
       trail.style.cssText = `
         position: fixed;
         width: ${size}px;
-        height: ${size * 0.86}px;
+        height: ${size * 0.84}px;
         background: linear-gradient(135deg,
           rgba(${Math.round(52 - 20 * darkness)}, ${Math.round(228 - 80 * darkness)}, ${Math.round(194 - 60 * darkness)}, ${opacity}) 0%,
           rgba(${Math.round(13 + 10 * darkness)}, ${Math.round(139 - 40 * darkness)}, ${Math.round(99 - 50 * darkness)}, ${opacity}) 100%);
-        border-radius: 50% 60% 70% 60% / 60% 60% 50% 60%;
+        border-radius: 60% 70% 80% 70% / 70% 70% 55% 70%;
         pointer-events: none;
-        z-index: 9999;
+        z-index: 10000; /* above particles canvas */
         transform: translate(-50%, -50%) rotate(0deg) scale(1);
-        transition: opacity 150ms ease;
+        transition: opacity 260ms ease;
         opacity: 0;
       `;
       document.body.appendChild(trail);
@@ -895,14 +988,19 @@ function initCustomCursor() {
     if (!cursor) return;
     // Fade out, then remove
     cursor.style.opacity = '0';
-    trailElements.forEach(t => (t.element.style.opacity = '0'));
-    setTimeout(() => {
+    trailElements.forEach((t, i) => {
+      // staggered gentle fade for smoother exit
+      setTimeout(() => { t.element.style.opacity = '0'; }, i * 14);
+    });
+    destroyTimeoutId = setTimeout(() => {
       cursor && cursor.remove();
       trailElements.forEach(t => t.element.remove());
       cursor = null;
       trailElements = [];
       document.body.style.cursor = '';
-    }, 160);
+      disableGlobalCursorHide();
+      destroyTimeoutId = null;
+    }, 420);
   };
 
   const handleMouseMove = (e) => {
@@ -919,8 +1017,8 @@ function initCustomCursor() {
     const angle = Math.atan2(vy, vx) * (180 / Math.PI);
 
     // Smooth main cursor movement
-    cursorX += (mouseX - cursorX) * 0.28;
-    cursorY += (mouseY - cursorY) * 0.28;
+    cursorX += (mouseX - cursorX) * 0.38; // faster head
+    cursorY += (mouseY - cursorY) * 0.38;
     cursor.style.left = `${cursorX}px`;
     cursor.style.top = `${cursorY}px`;
 
@@ -934,13 +1032,14 @@ function initCustomCursor() {
         trail.targetX = prev.x;
         trail.targetY = prev.y;
       }
-      const followEase = 0.22 + index * 0.04;
+      // quicker catch-up, tighter connection
+      const followEase = Math.min(0.5, 0.28 + index * 0.045);
       trail.x += (trail.targetX - trail.x) * followEase;
       trail.y += (trail.targetY - trail.y) * followEase;
-      const scale = Math.max(0.5, 1 - index * 0.03);
+      const scale = Math.max(0.44, 1 - index * 0.028);
       trail.element.style.left = `${trail.x}px`;
       trail.element.style.top = `${trail.y}px`;
-      trail.element.style.transform = `translate(-50%, -50%) rotate(${angle}deg) scale(${scale}, ${scale * 0.92})`;
+      trail.element.style.transform = `translate(-50%, -50%) rotate(${angle}deg) scale(${scale}, ${scale * 0.9})`;
     });
 
     rafId = requestAnimationFrame(animate);
@@ -949,6 +1048,9 @@ function initCustomCursor() {
   const onEnter = (e) => {
     if (isActive) return;
     isActive = true;
+    if (destroyTimeoutId) { clearTimeout(destroyTimeoutId); destroyTimeoutId = null; }
+    // Hide native cursor globally while active (covers inputs/links)
+    enableGlobalCursorHide();
     createCursor(e.clientX, e.clientY);
     document.addEventListener('mousemove', handleMouseMove, { passive: true });
     rafId = requestAnimationFrame(animate);
@@ -962,14 +1064,23 @@ function initCustomCursor() {
     destroyCursor();
   };
 
+  // Safety: if user re-enters and mousemove fires before mouseenter, create cursor at first move
+  const onFirstMoveCreate = (e) => {
+    if (!isActive && !cursor) {
+      onEnter(e);
+    }
+  };
+
   // Use pointer events for better device coverage
   document.addEventListener('mouseenter', onEnter);
   document.addEventListener('mouseleave', onLeave);
+  document.addEventListener('mousemove', onFirstMoveCreate, { passive: true });
 
   // Cleanup function
   return () => {
     document.removeEventListener('mouseenter', onEnter);
     document.removeEventListener('mouseleave', onLeave);
+    document.removeEventListener('mousemove', onFirstMoveCreate);
     document.removeEventListener('mousemove', handleMouseMove);
     if (rafId) cancelAnimationFrame(rafId);
     destroyCursor();
