@@ -829,8 +829,23 @@ body.cursor-blue-blob .cursor-follower {
 }
 
 @keyframes blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0; }
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+.cursor-blink {
+  animation: blink 1s infinite;
+  margin-left: 2px;
+  background: linear-gradient(135deg, #20c997 0%, #0d8b63 100%);
+  width: 2px;
+  height: 1.2em;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+/* Hide default cursor when custom cursor is active */
+body.custom-cursor {
+  cursor: none;
 }
 
 .typing-container.typing-paused .cursor-blink {
@@ -913,13 +928,6 @@ body.custom-cursor {
   background-color: #00b4ff;
   margin-left: 2px;
   vertical-align: middle;
-  position: relative;
-  top: -1px;
-  animation: blink 1s infinite;
-  opacity: 1;
-  transition: opacity 0.2s ease;
-  background: var(--primary-cyan);
-  margin-left: 4px;
   position: relative;
   top: 2px;
   animation: blinkBar 1s infinite steps(1);
