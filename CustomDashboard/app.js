@@ -1675,21 +1675,45 @@ function initPageAnimations() {
     document.body.style.backgroundPosition = 'center';
   })();
 
-  // Immediate box activation when comet touches
+  // Enhanced weather glow when comet touches
   (function setupProximityGlow() {
     const targets = [document.getElementById('search-bar'), document.getElementById('links-btn'), document.getElementById('task-input'), document.getElementById('weather')].filter(Boolean);
     let glowTimer = null;
     
+    console.log('Proximity glow targets:', targets.map(t => t.id)); // Debug log
+    
     const applyGlow = (el, isTouching) => {
       if (!el) return;
-      el.style.transition = 'box-shadow 0.1s ease, transform 0.1s ease'; // Faster transition
+      el.style.transition = 'box-shadow 0.1s ease, transform 0.1s ease, border 0.1s ease, background 0.1s ease'; // Added background transition
       if (isTouching) {
-        el.style.boxShadow = '0 0 40px rgba(32,201,151,1), 0 0 80px rgba(32,201,151,0.7)'; // Stronger glow
-        el.style.transform = 'scale(1.04)'; // Slightly bigger scale
+        // Enhanced glow for weather specifically
+        if (el.id === 'weather') {
+          el.style.boxShadow = '0 0 50px rgba(32,201,151,1), 0 0 100px rgba(32,201,151,0.8), inset 0 0 20px rgba(32,201,151,0.3)';
+          el.style.border = '2px solid rgba(32,201,151,1)';
+          el.style.background = 'rgba(32,201,151,0.1)'; // Add background glow
+          el.style.transform = 'scale(1.05)';
+          // Also glow the text inside
+          const tempEl = el.querySelector('#weather-temp');
+          const conditionEl = el.querySelector('#weather-condition');
+          if (tempEl) tempEl.style.textShadow = '0 0 10px rgba(32,201,151,0.8)';
+          if (conditionEl) conditionEl.style.textShadow = '0 0 10px rgba(32,201,151,0.8)';
+        } else {
+          el.style.boxShadow = '0 0 40px rgba(32,201,151,1), 0 0 80px rgba(32,201,151,0.7)';
+          el.style.transform = 'scale(1.04)';
+        }
         console.log('Box activated:', el.id);
       } else {
         el.style.boxShadow = '';
         el.style.transform = 'scale(1)';
+        if (el.id === 'weather') {
+          el.style.border = ''; // Reset weather border
+          el.style.background = ''; // Reset weather background
+          // Reset text glow
+          const tempEl = el.querySelector('#weather-temp');
+          const conditionEl = el.querySelector('#weather-condition');
+          if (tempEl) tempEl.style.textShadow = '';
+          if (conditionEl) conditionEl.style.textShadow = '';
+        }
       }
     };
     
@@ -1722,6 +1746,11 @@ function initPageAnimations() {
         const verticalOverlap = cometBottom > elementTop && cometTop < elementBottom;
         
         const isTouching = horizontalOverlap && verticalOverlap;
+        
+        // Debug weather specifically
+        if (t.id === 'weather' && isTouching) {
+          console.log('Weather touched! Comet:', cursorCenterX, cursorCenterY, 'Weather bounds:', elementLeft, elementTop, elementRight, elementBottom);
+        }
         
         // Apply glow immediately when touching
         applyGlow(t, isTouching);
