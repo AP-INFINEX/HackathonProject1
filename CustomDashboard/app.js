@@ -743,18 +743,18 @@ function showLoader() {
         if (!window.particlesJS) return false;
         window.particlesJS(containerId, {
           particles: {
-            number: { value: 80, density: { enable: true, value_area: 900 } },
+            number: { value: 110, density: { enable: true, value_area: 900 } },
             color: { value: '#ffffff' },
             shape: { type: 'circle' },
-            opacity: { value: 0.5 },
-            size: { value: 3, random: true },
-            line_linked: { enable: true, distance: 130, color: '#ffffff', opacity: 0.35, width: 1 },
-            move: { enable: true, speed: 1, direction: 'none', out_mode: 'out', straight: false }
+            opacity: { value: 0.55 },
+            size: { value: 3.8, random: true },
+            line_linked: { enable: true, distance: 160, color: '#ffffff', opacity: 0.45, width: 2 },
+            move: { enable: true, speed: 0.9, direction: 'none', out_mode: 'out', straight: false }
           },
           interactivity: {
             detect_on: 'canvas',
             events: { onhover: { enable: true, mode: 'grab' }, onclick: { enable: false }, resize: true },
-            modes: { grab: { distance: 140, line_linked: { opacity: 0.6 } } }
+            modes: { grab: { distance: 180, line_linked: { opacity: 0.9 } } }
           },
           retina_detect: true
         });
@@ -780,6 +780,57 @@ function showLoader() {
           if (initParticles() || tries > 20) clearInterval(t);
         }, 100);
       }
+      // Local fallback: lightweight canvas particles (no CDN)
+      if (!window.particlesJS) {
+        const canvas = document.createElement('canvas');
+        canvas.width = container.clientWidth;
+        canvas.height = container.clientHeight;
+        canvas.style.position = 'absolute';
+        canvas.style.inset = '0';
+        canvas.style.zIndex = '0';
+        container.appendChild(canvas);
+        const ctx = canvas.getContext('2d');
+        const nodes = [];
+        const count = 110;
+        function resize() { canvas.width = container.clientWidth; canvas.height = container.clientHeight; }
+        window.addEventListener('resize', resize);
+        for (let i = 0; i < count; i++) {
+          nodes.push({ x: Math.random() * canvas.width, y: Math.random() * canvas.height, vx: (Math.random()-0.5)*0.6, vy: (Math.random()-0.5)*0.6 });
+        }
+        let animId;
+        function step() {
+          ctx.fillStyle = '#000';
+          ctx.fillRect(0,0,canvas.width,canvas.height);
+          // move with gentle parallax (slower toward top-left, faster toward bottom-right)
+          for (const p of nodes) {
+            const depth = (p.x / canvas.width + p.y / canvas.height) * 0.5; // 0..1
+            p.x += p.vx * (0.7 + depth * 0.6);
+            p.y += p.vy * (0.7 + depth * 0.6);
+            if (p.x < 0 || p.x > canvas.width) p.vx *= -1;
+            if (p.y < 0 || p.y > canvas.height) p.vy *= -1;
+          }
+          // links
+          ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+          for (let i=0;i<nodes.length;i++) {
+            for (let j=i+1;j<nodes.length;j++) {
+              const a = nodes[i], b = nodes[j];
+              const dx = a.x-b.x, dy = a.y-b.y; const d2 = dx*dx+dy*dy;
+              if (d2 < 220*220) {
+                const op = 1 - Math.sqrt(d2)/220;
+                ctx.globalAlpha = 0.35*op;
+                ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke();
+              }
+            }
+          }
+          ctx.globalAlpha = 1;
+          // dots
+          ctx.fillStyle = '#ffffff';
+          for (const p of nodes) { ctx.beginPath(); ctx.arc(p.x,p.y,3,0,Math.PI*2); ctx.fill(); }
+          animId = requestAnimationFrame(step);
+        }
+        step();
+        container.__particlesStop = () => { cancelAnimationFrame(animId); window.removeEventListener('resize', resize); canvas.remove(); };
+      }
     }
   }
 }
@@ -802,6 +853,8 @@ function hideLoader() {
       loader.classList.add('hidden');
       setTimeout(() => {
         loader.style.display = 'none';
+        const container = document.getElementById('loaderParticles');
+        if (container && container.__particlesStop) { try { container.__particlesStop(); } catch(_) {} }
       }, 300);
     }, 300);
   }
@@ -826,7 +879,7 @@ function initTypingAnimation() {
     cursorBlink.style.borderColor = computed;
   } catch (_) {}
   // Smoother appearance
-  typingText.style.transition = 'opacity 0.2s ease';
+  typingText.style.transition = 'opacity 0.2s ease, transform 0.12s ease';
   typingText.style.willChange = 'contents, opacity';
   
   const titles = [
@@ -875,8 +928,8 @@ function initTypingAnimation() {
       }
     }
     
-    // Slight randomization for human-like rhythm
-    const jitter = isDeleting ? 10 : 30;
+    // Slight randomization for human-like rhythm (bounded)
+    const jitter = isDeleting ? 8 : 18;
     const speed = (isDeleting ? deleteSpeed : typingSpeed) + Math.round((Math.random() - 0.5) * jitter);
     setTimeout(typeEffect, Math.max(20, speed));
   }
@@ -906,6 +959,8 @@ function initCustomCursor() {
   let isActive = false;
   let destroyTimeoutId = null;
   let hideNativeCursorStyle = null;
+  let collapseCheckId = null;
+  let isFadingOut = false;
 
   const enableGlobalCursorHide = () => {
     if (hideNativeCursorStyle) return;
@@ -1049,9 +1104,19 @@ function initCustomCursor() {
     if (isActive) return;
     isActive = true;
     if (destroyTimeoutId) { clearTimeout(destroyTimeoutId); destroyTimeoutId = null; }
+    // cancel any pending collapse/fade from a previous leave
+    if (collapseCheckId) { cancelAnimationFrame(collapseCheckId); collapseCheckId = null; }
+    isFadingOut = false;
     // Hide native cursor globally while active (covers inputs/links)
     enableGlobalCursorHide();
-    createCursor(e.clientX, e.clientY);
+    // If fade-out was running, immediately restore visibility
+    if (cursor) {
+      cursor.style.opacity = '1';
+      trailElements.forEach(t => t.element.style.opacity = '1');
+    }
+    // Recreate if needed and snap to pointer
+    if (!cursor) createCursor(e.clientX, e.clientY);
+    mouseX = e.clientX; mouseY = e.clientY; cursorX = e.clientX; cursorY = e.clientY;
     document.addEventListener('mousemove', handleMouseMove, { passive: true });
     rafId = requestAnimationFrame(animate);
   };
@@ -1060,8 +1125,42 @@ function initCustomCursor() {
     if (!isActive) return;
     isActive = false;
     document.removeEventListener('mousemove', handleMouseMove);
-    if (rafId) cancelAnimationFrame(rafId);
-    destroyCursor();
+    // Guide cursor to nearest viewport edge and wait for trail collapse, then fade
+    const w = window.innerWidth, h = window.innerHeight;
+    const distLeft = cursorX, distRight = w - cursorX, distTop = cursorY, distBottom = h - cursorY;
+    const minDist = Math.min(distLeft, distRight, distTop, distBottom);
+    if (minDist === distLeft) { mouseX = 8; mouseY = cursorY; }
+    else if (minDist === distRight) { mouseX = w - 8; mouseY = cursorY; }
+    else if (minDist === distTop) { mouseX = cursorX; mouseY = 8; }
+    else { mouseX = cursorX; mouseY = h - 8; }
+
+    if (collapseCheckId) cancelAnimationFrame(collapseCheckId);
+    isFadingOut = true;
+    const checkCollapse = () => {
+      if (!isFadingOut) return; // re-enter canceled
+      if (!trailElements.length) { startFade(); return; }
+      const tail = trailElements[trailElements.length - 1];
+      const dx = (tail.x || 0) - cursorX;
+      const dy = (tail.y || 0) - cursorY;
+      const dist = Math.hypot(dx, dy);
+      if (dist < 6) startFade();
+      else collapseCheckId = requestAnimationFrame(checkCollapse);
+    };
+    const startFade = () => {
+      if (collapseCheckId) cancelAnimationFrame(collapseCheckId);
+      if (!cursor || isActive) return; // if re-entered, skip fade
+      cursor.style.transition = 'opacity 500ms ease';
+      trailElements.forEach((t, i) => { t.element.style.transition = 'opacity 500ms ease'; });
+      cursor.style.opacity = '0';
+      trailElements.forEach((t, i) => { t.element.style.opacity = '0'; });
+      setTimeout(() => {
+        if (!isActive) {
+          if (rafId) cancelAnimationFrame(rafId);
+          destroyCursor();
+        }
+      }, 520);
+    };
+    collapseCheckId = requestAnimationFrame(checkCollapse);
   };
 
   // Safety: if user re-enters and mousemove fires before mouseenter, create cursor at first move
