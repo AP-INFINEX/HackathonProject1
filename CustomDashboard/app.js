@@ -748,13 +748,13 @@ function showLoader() {
             shape: { type: 'circle' },
             opacity: { value: 0.55 },
             size: { value: 3.8, random: true },
-            line_linked: { enable: true, distance: 160, color: '#ffffff', opacity: 0.45, width: 2 },
-            move: { enable: true, speed: 0.9, direction: 'none', out_mode: 'out', straight: false }
+            line_linked: { enable: true, distance: 160, color: '#ffffff', opacity: 0.55, width: 2.2 },
+            move: { enable: true, speed: 0.8, direction: 'none', out_mode: 'out', straight: false }
           },
           interactivity: {
             detect_on: 'canvas',
             events: { onhover: { enable: true, mode: 'grab' }, onclick: { enable: false }, resize: true },
-            modes: { grab: { distance: 180, line_linked: { opacity: 0.9 } } }
+            modes: { grab: { distance: 200, line_linked: { opacity: 1 } } }
           },
           retina_detect: true
         });
@@ -798,9 +798,16 @@ function showLoader() {
           nodes.push({ x: Math.random() * canvas.width, y: Math.random() * canvas.height, vx: (Math.random()-0.5)*0.6, vy: (Math.random()-0.5)*0.6 });
         }
         let animId;
-        function step() {
+        let t0 = performance.now();
+        function step(now) {
           ctx.fillStyle = '#000';
           ctx.fillRect(0,0,canvas.width,canvas.height);
+          const elapsed = (now - t0) / 1000;
+          const zoom = 1 + Math.sin(elapsed * 0.2) * 0.02; // subtle 2% zoom oscillation
+          ctx.save();
+          ctx.translate(canvas.width/2, canvas.height/2);
+          ctx.scale(zoom, zoom);
+          ctx.translate(-canvas.width/2, -canvas.height/2);
           // move with gentle parallax (slower toward top-left, faster toward bottom-right)
           for (const p of nodes) {
             const depth = (p.x / canvas.width + p.y / canvas.height) * 0.5; // 0..1
@@ -826,9 +833,10 @@ function showLoader() {
           // dots
           ctx.fillStyle = '#ffffff';
           for (const p of nodes) { ctx.beginPath(); ctx.arc(p.x,p.y,3,0,Math.PI*2); ctx.fill(); }
+          ctx.restore();
           animId = requestAnimationFrame(step);
         }
-        step();
+        step(performance.now());
         container.__particlesStop = () => { cancelAnimationFrame(animId); window.removeEventListener('resize', resize); canvas.remove(); };
       }
     }
@@ -879,7 +887,7 @@ function initTypingAnimation() {
     cursorBlink.style.borderColor = computed;
   } catch (_) {}
   // Smoother appearance
-  typingText.style.transition = 'opacity 0.2s ease, transform 0.12s ease';
+  typingText.style.transition = 'opacity 0.2s ease';
   typingText.style.willChange = 'contents, opacity';
   
   const titles = [
@@ -896,8 +904,8 @@ function initTypingAnimation() {
   let charIndex = 0;
   let isDeleting = false;
   // Restore previous pacing
-  let typingSpeed = 100;
-  let deleteSpeed = 50;
+  let typingSpeed = 95;
+  let deleteSpeed = 55;
   let pauseTime = 2000;
   
   function typeEffect() {
@@ -929,7 +937,7 @@ function initTypingAnimation() {
     }
     
     // Slight randomization for human-like rhythm (bounded)
-    const jitter = isDeleting ? 8 : 18;
+    const jitter = isDeleting ? 6 : 12; // tighter randomness for less jitter
     const speed = (isDeleting ? deleteSpeed : typingSpeed) + Math.round((Math.random() - 0.5) * jitter);
     setTimeout(typeEffect, Math.max(20, speed));
   }
@@ -999,14 +1007,14 @@ function initCustomCursor() {
     document.body.appendChild(cursor);
 
     // Trail (tapered, darker along tail)
-    const trailCount = 18; // denser for more connected look
+    const trailCount = 22; // slightly longer trail
     trailElements = [];
     for (let i = 0; i < trailCount; i++) {
       const trail = document.createElement('div');
       trail.className = 'cursor-trail';
 
       // Size decreases and gets darker
-      const size = Math.max(5, 30 - i * 1.4);
+      const size = Math.max(5, 32 - i * 1.35);
       const darkness = Math.min(1, 0.12 + i * 0.05); // more dark further back
       const opacity = Math.max(0.06, 0.92 - i * 0.05);
 
@@ -1072,8 +1080,8 @@ function initCustomCursor() {
     const angle = Math.atan2(vy, vx) * (180 / Math.PI);
 
     // Smooth main cursor movement
-    cursorX += (mouseX - cursorX) * 0.38; // faster head
-    cursorY += (mouseY - cursorY) * 0.38;
+    cursorX += (mouseX - cursorX) * 0.35; // slightly slower for longer visible tail
+    cursorY += (mouseY - cursorY) * 0.35;
     cursor.style.left = `${cursorX}px`;
     cursor.style.top = `${cursorY}px`;
 
@@ -1088,7 +1096,7 @@ function initCustomCursor() {
         trail.targetY = prev.y;
       }
       // quicker catch-up, tighter connection
-      const followEase = Math.min(0.5, 0.28 + index * 0.045);
+      const followEase = Math.min(0.45, 0.22 + index * 0.035);
       trail.x += (trail.targetX - trail.x) * followEase;
       trail.y += (trail.targetY - trail.y) * followEase;
       const scale = Math.max(0.44, 1 - index * 0.028);
@@ -1109,13 +1117,11 @@ function initCustomCursor() {
     isFadingOut = false;
     // Hide native cursor globally while active (covers inputs/links)
     enableGlobalCursorHide();
-    // If fade-out was running, immediately restore visibility
-    if (cursor) {
-      cursor.style.opacity = '1';
-      trailElements.forEach(t => t.element.style.opacity = '1');
-    }
-    // Recreate if needed and snap to pointer
-    if (!cursor) createCursor(e.clientX, e.clientY);
+    // Always recreate fresh comet to avoid any residual shorter trail
+    if (cursor) { try { cursor.remove(); } catch(_) {} }
+    trailElements.forEach(t => { try { t.element.remove(); } catch(_) {} });
+    trailElements = [];
+    createCursor(e.clientX, e.clientY);
     mouseX = e.clientX; mouseY = e.clientY; cursorX = e.clientX; cursorY = e.clientY;
     document.addEventListener('mousemove', handleMouseMove, { passive: true });
     rafId = requestAnimationFrame(animate);
