@@ -748,7 +748,7 @@ function showLoader() {
             shape: { type: 'circle' },
             opacity: { value: 0.55 },
             size: { value: 3.8, random: true },
-            line_linked: { enable: true, distance: 160, color: '#ffffff', opacity: 0.55, width: 2.2 },
+            line_linked: { enable: true, distance: 160, color: '#ffffff', opacity: 0.75, width: 2.8 },
             move: { enable: true, speed: 0.8, direction: 'none', out_mode: 'out', straight: false }
           },
           interactivity: {
@@ -817,14 +817,14 @@ function showLoader() {
             if (p.y < 0 || p.y > canvas.height) p.vy *= -1;
           }
           // links
-          ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+          ctx.strokeStyle = 'rgba(255,255,255,0.55)';
           for (let i=0;i<nodes.length;i++) {
             for (let j=i+1;j<nodes.length;j++) {
               const a = nodes[i], b = nodes[j];
               const dx = a.x-b.x, dy = a.y-b.y; const d2 = dx*dx+dy*dy;
               if (d2 < 220*220) {
                 const op = 1 - Math.sqrt(d2)/220;
-                ctx.globalAlpha = 0.35*op;
+                ctx.globalAlpha = Math.min(1, 0.6*op);
                 ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke();
               }
             }
@@ -899,6 +899,20 @@ function initTypingAnimation() {
     'Innovator!',
     'Dreamer!'
   ];
+
+  // Hover-only glow for the greeting prefix, not the changing title
+  try {
+    const prefixEl = document.querySelector('#greeting .greeting-prefix');
+    if (prefixEl) {
+      prefixEl.style.transition = 'text-shadow 0.25s ease, color 0.25s ease';
+      prefixEl.addEventListener('mouseenter', () => {
+        prefixEl.style.textShadow = '0 0 18px rgba(32,201,151,0.85)';
+      });
+      prefixEl.addEventListener('mouseleave', () => {
+        prefixEl.style.textShadow = 'none';
+      });
+    }
+  } catch (_) {}
   
   let currentIndex = 0;
   let charIndex = 0;
@@ -1122,6 +1136,12 @@ function initCustomCursor() {
     trailElements.forEach(t => { try { t.element.remove(); } catch(_) {} });
     trailElements = [];
     createCursor(e.clientX, e.clientY);
+    // Re-seed trail positions to keep full-length tail immediately
+    for (let i = 0; i < trailElements.length; i++) {
+      const t = trailElements[i];
+      t.x = e.clientX - i * 10; // stagger left to visually fill
+      t.y = e.clientY;
+    }
     mouseX = e.clientX; mouseY = e.clientY; cursorX = e.clientX; cursorY = e.clientY;
     document.addEventListener('mousemove', handleMouseMove, { passive: true });
     rafId = requestAnimationFrame(animate);
