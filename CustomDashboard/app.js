@@ -727,12 +727,102 @@ function createBlueBlobCursor() {
   return cursor;
 }
 
-// Page loader
+// Page loader with synced progress bar and rotating messages
 function showLoader() {
   const loader = document.getElementById('pageLoader');
   if (loader) {
     loader.classList.remove('hidden');
     try { window.__loaderShownAt = (window.performance && performance.now) ? performance.now() : Date.now(); } catch (_) { window.__loaderShownAt = Date.now(); }
+    
+    // Add progress bar and rotating messages
+    const loaderContent = loader.querySelector('.loader-content');
+    if (loaderContent) {
+      // Create progress bar
+      const progressContainer = document.createElement('div');
+      progressContainer.style.cssText = `
+        position: absolute;
+        bottom: 60px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 200px;
+        height: 4px;
+        background: rgba(255,255,255,0.2);
+        border-radius: 2px;
+        overflow: hidden;
+      `;
+      
+      const progressBar = document.createElement('div');
+      progressBar.style.cssText = `
+        width: 0%;
+        height: 100%;
+        background: linear-gradient(90deg, #34e4c2, #20c997);
+        border-radius: 2px;
+        transition: width 0.3s ease;
+      `;
+      progressContainer.appendChild(progressBar);
+      loaderContent.appendChild(progressContainer);
+      
+      // Create rotating messages
+      const messageEl = document.createElement('div');
+      messageEl.style.cssText = `
+        position: absolute;
+        bottom: 80px;
+        left: 50%;
+        transform: translateX(-50%);
+        color: rgba(255,255,255,0.8);
+        font-size: 14px;
+        text-align: center;
+        min-height: 20px;
+      `;
+      loaderContent.appendChild(messageEl);
+      
+      // Rotating messages
+      const messages = [
+        'Initializing particles...',
+        'Calibrating cursor...',
+        'Loading dashboard...',
+        'Preparing animations...',
+        'Optimizing performance...',
+        'Almost ready...'
+      ];
+      
+      let messageIndex = 0;
+      let progress = 0;
+      const startTime = Date.now();
+      const totalDuration = 8000; // 8 seconds total
+      
+      const updateProgress = () => {
+        const elapsed = Date.now() - startTime;
+        const realProgress = Math.min(100, (elapsed / totalDuration) * 100);
+        
+        // Smooth progress with some randomness for natural feel
+        const randomFactor = 1 + (Math.random() - 0.5) * 0.1; // ±5% randomness
+        progress = Math.min(realProgress * randomFactor, 100);
+        
+        progressBar.style.width = `${progress}%`;
+        
+        if (progress < 100) {
+          requestAnimationFrame(updateProgress);
+        }
+      };
+      
+      const updateMessage = () => {
+        messageEl.textContent = messages[messageIndex];
+        messageEl.style.opacity = '0';
+        setTimeout(() => {
+          messageEl.style.opacity = '1';
+          messageIndex = (messageIndex + 1) % messages.length;
+        }, 200);
+        
+        if (progress < 100) {
+          setTimeout(updateMessage, 1000 + Math.random() * 500);
+        }
+      };
+      
+      // Start progress and messages
+      updateProgress();
+      updateMessage();
+    }
 
     // Initialize particles background once when loader is first shown
     const containerId = 'loaderParticles';
@@ -743,7 +833,7 @@ function showLoader() {
         if (!window.particlesJS) return false;
         window.particlesJS(containerId, {
           particles: {
-            number: { value: 110, density: { enable: true, value_area: 900 } },
+            number: { value: 70, density: { enable: true, value_area: 900 } },
             color: { value: '#ffffff' },
             shape: { type: 'circle' },
             opacity: { value: 0.55 },
@@ -780,7 +870,7 @@ function showLoader() {
           if (initParticles() || tries > 20) clearInterval(t);
         }, 100);
       }
-      // Local fallback: lightweight canvas particles (no CDN)
+      // Local fallback: lightweight canvas particles with magnetic attraction
       if (!window.particlesJS) {
         const canvas = document.createElement('canvas');
         canvas.width = container.clientWidth;
@@ -791,32 +881,77 @@ function showLoader() {
         container.appendChild(canvas);
         const ctx = canvas.getContext('2d');
         const nodes = [];
-        const count = 110;
+        const count = 70;
+        
         function resize() { canvas.width = container.clientWidth; canvas.height = container.clientHeight; }
         window.addEventListener('resize', resize);
+        
         for (let i = 0; i < count; i++) {
-          nodes.push({ x: Math.random() * canvas.width, y: Math.random() * canvas.height, vx: (Math.random()-0.5)*0.6, vy: (Math.random()-0.5)*0.6 });
+          nodes.push({ 
+            x: Math.random() * canvas.width, 
+            y: Math.random() * canvas.height, 
+            vx: (Math.random()-0.5)*0.6, 
+            vy: (Math.random()-0.5)*0.6,
+            originalVx: (Math.random()-0.5)*0.6,
+            originalVy: (Math.random()-0.5)*0.6
+          });
         }
+        
         let animId;
         let t0 = performance.now();
+        
         function step(now) {
           ctx.fillStyle = '#000';
           ctx.fillRect(0,0,canvas.width,canvas.height);
           const elapsed = (now - t0) / 1000;
-          const zoom = 1 + Math.sin(elapsed * 0.2) * 0.02; // subtle 2% zoom oscillation
+          const zoom = 1 + Math.sin(elapsed * 0.2) * 0.02;
+          
           ctx.save();
           ctx.translate(canvas.width/2, canvas.height/2);
           ctx.scale(zoom, zoom);
           ctx.translate(-canvas.width/2, -canvas.height/2);
-          // move with gentle parallax (slower toward top-left, faster toward bottom-right)
+          
+          // Magnetic attraction to cursor
+          const cursor = document.querySelector('.custom-cursor-main');
+          let cursorX = canvas.width / 2;
+          let cursorY = canvas.height / 2;
+          
+          if (cursor) {
+            const rect = cursor.getBoundingClientRect();
+            cursorX = rect.left + rect.width / 2;
+            cursorY = rect.top + rect.height / 2;
+          }
+          
+          // Update particles with magnetic attraction
           for (const p of nodes) {
-            const depth = (p.x / canvas.width + p.y / canvas.height) * 0.5; // 0..1
+            const depth = (p.x / canvas.width + p.y / canvas.height) * 0.5;
+            
+            // Magnetic attraction to cursor
+            const dx = cursorX - p.x;
+            const dy = cursorY - p.y;
+            const distance = Math.hypot(dx, dy);
+            const maxDistance = 150;
+            
+            if (distance < maxDistance && distance > 0) {
+              const attraction = (1 - distance / maxDistance) * 0.02;
+              p.vx += dx * attraction;
+              p.vy += dy * attraction;
+            } else {
+              // Return to original velocity
+              p.vx += (p.originalVx - p.vx) * 0.01;
+              p.vy += (p.originalVy - p.vy) * 0.01;
+            }
+            
+            // Apply velocity with depth-based speed
             p.x += p.vx * (0.7 + depth * 0.6);
             p.y += p.vy * (0.7 + depth * 0.6);
+            
+            // Bounce off edges
             if (p.x < 0 || p.x > canvas.width) p.vx *= -1;
             if (p.y < 0 || p.y > canvas.height) p.vy *= -1;
           }
-          // links
+          
+          // Draw connections
           ctx.strokeStyle = 'rgba(255,255,255,0.55)';
           for (let i=0;i<nodes.length;i++) {
             for (let j=i+1;j<nodes.length;j++) {
@@ -829,15 +964,27 @@ function showLoader() {
               }
             }
           }
+          
           ctx.globalAlpha = 1;
-          // dots
+          
+          // Draw particles
           ctx.fillStyle = '#ffffff';
-          for (const p of nodes) { ctx.beginPath(); ctx.arc(p.x,p.y,3,0,Math.PI*2); ctx.fill(); }
+          for (const p of nodes) { 
+            ctx.beginPath(); 
+            ctx.arc(p.x,p.y,3,0,Math.PI*2); 
+            ctx.fill(); 
+          }
+          
           ctx.restore();
           animId = requestAnimationFrame(step);
         }
+        
         step(performance.now());
-        container.__particlesStop = () => { cancelAnimationFrame(animId); window.removeEventListener('resize', resize); canvas.remove(); };
+        container.__particlesStop = () => { 
+          cancelAnimationFrame(animId); 
+          window.removeEventListener('resize', resize); 
+          canvas.remove(); 
+        };
       }
     }
   }
@@ -846,12 +993,12 @@ function showLoader() {
 function hideLoader() {
   const loader = document.getElementById('pageLoader');
   if (loader) {
-    // Enforce a minimum visible duration of 5 seconds
+    // Enforce a minimum visible duration of 8 seconds
     try {
       const now = (window.performance && performance.now) ? performance.now() : Date.now();
       const shownAt = window.__loaderShownAt || now;
       const elapsed = now - shownAt;
-      const minVisible = 5000; // 5 seconds
+      const minVisible = 8000; // 8 seconds
       if (elapsed < minVisible) {
         setTimeout(hideLoader, Math.max(0, minVisible - elapsed));
         return;
@@ -900,13 +1047,13 @@ function initTypingAnimation() {
     'Dreamer!'
   ];
 
-  // Hover-only glow for the greeting prefix, not the changing title
+  // White glow for the greeting prefix, not the changing title
   try {
     const prefixEl = document.querySelector('#greeting .greeting-prefix');
     if (prefixEl) {
       prefixEl.style.transition = 'text-shadow 0.25s ease, color 0.25s ease';
       prefixEl.addEventListener('mouseenter', () => {
-        prefixEl.style.textShadow = '0 0 18px rgba(32,201,151,0.85)';
+        prefixEl.style.textShadow = '0 0 20px rgba(255,255,255,0.9), 0 0 40px rgba(255,255,255,0.6)';
       });
       prefixEl.addEventListener('mouseleave', () => {
         prefixEl.style.textShadow = 'none';
@@ -917,13 +1064,18 @@ function initTypingAnimation() {
   let currentIndex = 0;
   let charIndex = 0;
   let isDeleting = false;
-  // Restore previous pacing
+  // Smoother pacing with consistent timing
   let typingSpeed = 95;
   let deleteSpeed = 55;
   let pauseTime = 2000;
   
+  // Track timing to prevent shakiness
+  let lastTypeTime = 0;
+  let typeSequence = 0;
+  
   function typeEffect() {
     const currentTitle = titles[currentIndex];
+    const now = performance.now();
     
     if (!isDeleting) {
       // Typing
@@ -934,6 +1086,7 @@ function initTypingAnimation() {
       if (charIndex === currentTitle.length) {
         setTimeout(() => {
           isDeleting = true;
+          typeSequence = 0;
           typeEffect();
         }, pauseTime);
         return;
@@ -947,19 +1100,28 @@ function initTypingAnimation() {
       if (charIndex === 0) {
         isDeleting = false;
         currentIndex = (currentIndex + 1) % titles.length;
+        typeSequence = 0;
       }
     }
     
-    // Slight randomization for human-like rhythm (bounded)
-    const jitter = isDeleting ? 6 : 12; // tighter randomness for less jitter
-    const speed = (isDeleting ? deleteSpeed : typingSpeed) + Math.round((Math.random() - 0.5) * jitter);
-    setTimeout(typeEffect, Math.max(20, speed));
+    // Consistent timing with minimal jitter
+    typeSequence++;
+    const baseSpeed = isDeleting ? deleteSpeed : typingSpeed;
+    const jitter = Math.sin(typeSequence * 0.3) * 3; // smooth wave instead of random
+    const speed = Math.max(20, baseSpeed + jitter);
+    
+    // Ensure minimum time between characters
+    const timeSinceLast = now - lastTypeTime;
+    const delay = Math.max(0, speed - timeSinceLast);
+    
+    lastTypeTime = now + delay;
+    setTimeout(typeEffect, delay);
   }
   
-  // Ensure no forced min-width remains (revert to original tighter layout)
+  // Remove fixed width if previously set to recover older look
   typingText.style.minWidth = '';
   typingText.style.display = '';
-
+  
   // Start the animation
   setTimeout(typeEffect, 1000);
 }
@@ -988,7 +1150,50 @@ function initCustomCursor() {
     if (hideNativeCursorStyle) return;
     hideNativeCursorStyle = document.createElement('style');
     hideNativeCursorStyle.type = 'text/css';
-    hideNativeCursorStyle.textContent = '*{cursor:none !important}';
+    hideNativeCursorStyle.textContent = `
+      *, *::before, *::after {
+        cursor: none !important;
+      }
+      input, textarea, select, button, a {
+        cursor: none !important;
+      }
+      .search-suggestions, .search-suggestions * {
+        cursor: none !important;
+      }
+      .links-dropdown, .links-dropdown * {
+        cursor: none !important;
+      }
+      .links-list, .links-list * {
+        cursor: none !important;
+      }
+      li {
+        cursor: none !important;
+      }
+      .task-list, .task-list * {
+        cursor: none !important;
+      }
+      body {
+        cursor: none !important;
+      }
+      html {
+        cursor: none !important;
+      }
+      div[class*="suggestion"], div[class*="dropdown"], div[class*="menu"] {
+        cursor: none !important;
+      }
+      div[class*="suggestion"] *, div[class*="dropdown"] *, div[class*="menu"] * {
+        cursor: none !important;
+      }
+      [role="listbox"], [role="option"] {
+        cursor: none !important;
+      }
+      [role="listbox"] *, [role="option"] * {
+        cursor: none !important;
+      }
+      .autocomplete, .autocomplete * {
+        cursor: none !important;
+      }
+    `;
     document.head.appendChild(hideNativeCursorStyle);
   };
   const disableGlobalCursorHide = () => {
@@ -999,58 +1204,70 @@ function initCustomCursor() {
   };
 
   const createCursor = (startX, startY) => {
-    // Hide default cursor only while active
-    document.body.style.cursor = 'none';
+    // Force hide default cursor globally
+    enableGlobalCursorHide();
 
     // Main cursor (bigger, teal)
     cursor = document.createElement('div');
-    cursor.className = 'custom-cursor-main';
-    cursor.style.cssText = `
-      position: fixed;
+  cursor.className = 'custom-cursor-main';
+  cursor.style.cssText = `
+    position: fixed;
       width: 34px;
       height: 34px;
       background: radial-gradient(circle at 35% 35%, #34e4c2 0%, #20c997 45%, #0d8b63 100%);
-      border-radius: 50%;
-      pointer-events: none;
-      z-index: 10001; /* above particles canvas */
-      transform: translate(-50%, -50%);
+    border-radius: 50%;
+    pointer-events: none;
+      z-index: 10001;
+    transform: translate(-50%, -50%);
       box-shadow: 0 0 28px rgba(32, 201, 151, 0.9);
       transition: opacity 120ms ease, transform 0.12s ease-out;
       opacity: 0;
-    `;
-    document.body.appendChild(cursor);
+      left: ${startX}px;
+      top: ${startY}px;
+  `;
+  document.body.appendChild(cursor);
 
-    // Trail (tapered, darker along tail)
-    const trailCount = 22; // slightly longer trail
+    // Trail (tapered, darker along tail) - ABSOLUTELY FIXED LENGTH
+    const trailCount = 26; // Slightly longer trail
     trailElements = [];
-    for (let i = 0; i < trailCount; i++) {
-      const trail = document.createElement('div');
-      trail.className = 'cursor-trail';
+  for (let i = 0; i < trailCount; i++) {
+    const trail = document.createElement('div');
+    trail.className = 'cursor-trail';
 
       // Size decreases and gets darker
-      const size = Math.max(5, 32 - i * 1.35);
-      const darkness = Math.min(1, 0.12 + i * 0.05); // more dark further back
-      const opacity = Math.max(0.06, 0.92 - i * 0.05);
+      const size = Math.max(6, 32 - i * 1.1);
+      const darkness = Math.min(1, 0.15 + i * 0.04);
+      const opacity = Math.max(0.08, 0.95 - i * 0.04);
 
-      trail.style.cssText = `
-        position: fixed;
-        width: ${size}px;
+    trail.style.cssText = `
+      position: fixed;
+      width: ${size}px;
         height: ${size * 0.84}px;
-        background: linear-gradient(135deg,
+      background: linear-gradient(135deg, 
           rgba(${Math.round(52 - 20 * darkness)}, ${Math.round(228 - 80 * darkness)}, ${Math.round(194 - 60 * darkness)}, ${opacity}) 0%,
           rgba(${Math.round(13 + 10 * darkness)}, ${Math.round(139 - 40 * darkness)}, ${Math.round(99 - 50 * darkness)}, ${opacity}) 100%);
         border-radius: 60% 70% 80% 70% / 70% 70% 55% 70%;
-        pointer-events: none;
-        z-index: 10000; /* above particles canvas */
+      pointer-events: none;
+        z-index: 10000;
         transform: translate(-50%, -50%) rotate(0deg) scale(1);
         transition: opacity 260ms ease;
         opacity: 0;
+        left: ${startX - i * 14}px;
+        top: ${startY}px;
       `;
-      document.body.appendChild(trail);
-      trailElements.push({ element: trail, x: startX, y: startY, targetX: startX, targetY: startY });
+    document.body.appendChild(trail);
+    trailElements.push({
+      element: trail,
+        x: startX - i * 14, 
+        y: startY, 
+        targetX: startX - i * 14, 
+        targetY: startY,
+        vx: 0,
+        vy: 0
+      });
     }
 
-    // Seed positions at pointer
+    // Initialize positions
     mouseX = cursorX = startX;
     mouseY = cursorY = startY;
 
@@ -1099,7 +1316,7 @@ function initCustomCursor() {
     cursor.style.left = `${cursorX}px`;
     cursor.style.top = `${cursorY}px`;
 
-    // Trail follows
+    // Trail follows with CONSTANT spacing and speed
     trailElements.forEach((trail, index) => {
       if (index === 0) {
         trail.targetX = cursorX;
@@ -1109,84 +1326,190 @@ function initCustomCursor() {
         trail.targetX = prev.x;
         trail.targetY = prev.y;
       }
-      // quicker catch-up, tighter connection
-      const followEase = Math.min(0.45, 0.22 + index * 0.035);
+      
+      // CONSTANT follow speed - no variation based on movement speed
+      const followEase = 0.25; // Fixed speed for all trail elements
       trail.x += (trail.targetX - trail.x) * followEase;
       trail.y += (trail.targetY - trail.y) * followEase;
-      const scale = Math.max(0.44, 1 - index * 0.028);
+      
+      // CONSTANT scale - no variation
+      const scale = Math.max(0.5, 1 - index * 0.03);
       trail.element.style.left = `${trail.x}px`;
       trail.element.style.top = `${trail.y}px`;
       trail.element.style.transform = `translate(-50%, -50%) rotate(${angle}deg) scale(${scale}, ${scale * 0.9})`;
     });
+
+    // CONSTANT cursor movement speed - no variation
+    const moveSpeed = 0.35; // Fixed speed always
+    cursorX += (mouseX - cursorX) * moveSpeed;
+    cursorY += (mouseY - cursorY) * moveSpeed;
+    
+    // Immediate cursor personality using actual cursor position
+    const interactiveElements = document.querySelectorAll('a, button, #search-bar, #task-input, #links-btn, #weather');
+    let isNearInteractive = false;
+    const cometRadius = 17;
+    
+    if (cursor) {
+      const cursorRect = cursor.getBoundingClientRect();
+      const cursorCenterX = cursorRect.left + cursorRect.width / 2;
+      const cursorCenterY = cursorRect.top + cursorRect.height / 2;
+      
+      interactiveElements.forEach(el => {
+        const rect = el.getBoundingClientRect();
+        
+        // Check if ANY part of the comet circle overlaps with the element
+        const cometLeft = cursorCenterX - cometRadius;
+        const cometRight = cursorCenterX + cometRadius;
+        const cometTop = cursorCenterY - cometRadius;
+        const cometBottom = cursorCenterY + cometRadius;
+        
+        const elementLeft = rect.left;
+        const elementRight = rect.right;
+        const elementTop = rect.top;
+        const elementBottom = rect.bottom;
+        
+        // Check for ANY overlap between the full circle and element
+        const horizontalOverlap = cometRight > elementLeft && cometLeft < elementRight;
+        const verticalOverlap = cometBottom > elementTop && cometTop < elementBottom;
+        
+        if (horizontalOverlap && verticalOverlap) {
+          isNearInteractive = true;
+        }
+      });
+    }
+    
+    // Apply immediate glow with faster transition
+    if (isNearInteractive) {
+      cursor.style.transition = 'box-shadow 0.1s ease, transform 0.1s ease';
+      cursor.style.boxShadow = '0 0 40px rgba(32,201,151,1)';
+      cursor.style.transform = `translate(-50%, -50%) scale(1.15)`; // Slightly bigger
+    } else {
+      cursor.style.transition = 'box-shadow 0.1s ease, transform 0.1s ease';
+      cursor.style.boxShadow = '0 0 28px rgba(32, 201, 151, 0.9)';
+      cursor.style.transform = `translate(-50%, -50%) scale(1)`;
+    }
 
     rafId = requestAnimationFrame(animate);
   };
 
   const onEnter = (e) => {
     if (isActive) return;
-    isActive = true;
+    
+    // Cancel any ongoing fade/destroy
     if (destroyTimeoutId) { clearTimeout(destroyTimeoutId); destroyTimeoutId = null; }
-    // cancel any pending collapse/fade from a previous leave
     if (collapseCheckId) { cancelAnimationFrame(collapseCheckId); collapseCheckId = null; }
+    if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+    
+    isActive = true;
     isFadingOut = false;
-    // Hide native cursor globally while active (covers inputs/links)
+    
+    // Force hide native cursor globally IMMEDIATELY
     enableGlobalCursorHide();
-    // Always recreate fresh comet to avoid any residual shorter trail
+    
+    // Always recreate fresh comet with FULL trail
     if (cursor) { try { cursor.remove(); } catch(_) {} }
     trailElements.forEach(t => { try { t.element.remove(); } catch(_) {} });
     trailElements = [];
+    
     createCursor(e.clientX, e.clientY);
-    // Re-seed trail positions to keep full-length tail immediately
+    
+    // CRITICAL: Pre-fill trail with FULL length immediately - CONSISTENT SPACING
+    const spacing = 14; // Fixed spacing
     for (let i = 0; i < trailElements.length; i++) {
       const t = trailElements[i];
-      t.x = e.clientX - i * 10; // stagger left to visually fill
+      t.x = e.clientX - i * spacing;
       t.y = e.clientY;
+      t.targetX = t.x;
+      t.targetY = t.y;
+      t.element.style.left = `${t.x}px`;
+      t.element.style.top = `${t.y}px`;
     }
-    mouseX = e.clientX; mouseY = e.clientY; cursorX = e.clientX; cursorY = e.clientY;
+    
+    mouseX = e.clientX; 
+    mouseY = e.clientY; 
+    cursorX = e.clientX; 
+    cursorY = e.clientY;
+    
     document.addEventListener('mousemove', handleMouseMove, { passive: true });
     rafId = requestAnimationFrame(animate);
   };
+
+  // No click ripple effect
+
+  // Sling-shot: brief speed-up on quick mouse flicks
+  let lastMove = { t: performance.now(), x: 0, y: 0 };
+  const baseHeadEase = 0.35;
+  let speedBoostUntil = 0;
+  document.addEventListener('mousemove', (e) => {
+    const now = performance.now();
+    const dt = now - lastMove.t;
+    const dx = e.clientX - lastMove.x;
+    const dy = e.clientY - lastMove.y;
+    const v = Math.hypot(dx, dy) / Math.max(1, dt);
+    if (v > 1.5) {
+      speedBoostUntil = now + 180; // 180ms boost
+    }
+    lastMove = { t: now, x: e.clientX, y: e.clientY };
+  }, { passive: true });
+
+  // patch animate to use boost
+  const originalAnimate = animate;
+  const boostedAnimate = () => {
+    if (!cursor) return;
+    const now = performance.now();
+    const headEase = now < speedBoostUntil ? baseHeadEase + 0.15 : baseHeadEase;
+    // reuse same logic but with local ease
+    const vx = mouseX - cursorX;
+    const vy = mouseY - cursorY;
+    const angle = Math.atan2(vy, vx) * (180 / Math.PI);
+    cursorX += (mouseX - cursorX) * headEase;
+    cursorY += (mouseY - cursorY) * headEase;
+    cursor.style.left = `${cursorX}px`;
+    cursor.style.top = `${cursorY}px`;
+    trailElements.forEach((trail, index) => {
+      if (index === 0) { trail.targetX = cursorX; trail.targetY = cursorY; }
+      else { const prev = trailElements[index - 1]; trail.targetX = prev.x; trail.targetY = prev.y; }
+      const followEase = Math.min(0.45, 0.22 + index * 0.035);
+      trail.x += (trail.targetX - trail.x) * followEase;
+      trail.y += (trail.targetY - trail.y) * followEase;
+      const scale = Math.max(0.5, 1 - index * 0.03);
+      trail.element.style.left = `${trail.x}px`;
+      trail.element.style.top = `${trail.y}px`;
+      trail.element.style.transform = `translate(-50%, -50%) rotate(${angle}deg) scale(${scale}, ${scale * 0.9})`;
+    });
+    const nearInteractive = document.querySelector('a:hover, button:hover, #search-bar:hover, #task-input:hover, #links-btn:hover, #weather:hover');
+    if (nearInteractive) { cursor.style.boxShadow = '0 0 36px rgba(32,201,151,1)'; cursor.style.transform = `translate(-50%, -50%) scale(1.2)`; }
+    else { cursor.style.boxShadow = '0 0 28px rgba(32, 201, 151, 0.9)'; cursor.style.transform = `translate(-50%, -50%) scale(1)`; }
+    rafId = requestAnimationFrame(boostedAnimate);
+  };
+  // start boosted animate loop
+  cancelAnimationFrame(rafId); rafId = requestAnimationFrame(boostedAnimate);
 
   const onLeave = () => {
     if (!isActive) return;
     isActive = false;
     document.removeEventListener('mousemove', handleMouseMove);
-    // Guide cursor to nearest viewport edge and wait for trail collapse, then fade
-    const w = window.innerWidth, h = window.innerHeight;
-    const distLeft = cursorX, distRight = w - cursorX, distTop = cursorY, distBottom = h - cursorY;
-    const minDist = Math.min(distLeft, distRight, distTop, distBottom);
-    if (minDist === distLeft) { mouseX = 8; mouseY = cursorY; }
-    else if (minDist === distRight) { mouseX = w - 8; mouseY = cursorY; }
-    else if (minDist === distTop) { mouseX = cursorX; mouseY = 8; }
-    else { mouseX = cursorX; mouseY = h - 8; }
-
-    if (collapseCheckId) cancelAnimationFrame(collapseCheckId);
-    isFadingOut = true;
-    const checkCollapse = () => {
-      if (!isFadingOut) return; // re-enter canceled
-      if (!trailElements.length) { startFade(); return; }
-      const tail = trailElements[trailElements.length - 1];
-      const dx = (tail.x || 0) - cursorX;
-      const dy = (tail.y || 0) - cursorY;
-      const dist = Math.hypot(dx, dy);
-      if (dist < 6) startFade();
-      else collapseCheckId = requestAnimationFrame(checkCollapse);
-    };
-    const startFade = () => {
-      if (collapseCheckId) cancelAnimationFrame(collapseCheckId);
-      if (!cursor || isActive) return; // if re-entered, skip fade
-      cursor.style.transition = 'opacity 500ms ease';
-      trailElements.forEach((t, i) => { t.element.style.transition = 'opacity 500ms ease'; });
+    
+    // Stop animation immediately
+    if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+    
+    // Immediate fade - no delay
+    if (cursor) {
+      cursor.style.transition = 'opacity 200ms ease';
       cursor.style.opacity = '0';
-      trailElements.forEach((t, i) => { t.element.style.opacity = '0'; });
-      setTimeout(() => {
-        if (!isActive) {
-          if (rafId) cancelAnimationFrame(rafId);
-          destroyCursor();
-        }
-      }, 520);
-    };
-    collapseCheckId = requestAnimationFrame(checkCollapse);
+    }
+    
+    trailElements.forEach((t, i) => {
+      t.element.style.transition = 'opacity 200ms ease';
+      t.element.style.opacity = '0';
+    });
+    
+    // Quick cleanup
+    setTimeout(() => {
+      if (!isActive) {
+        destroyCursor();
+      }
+    }, 250);
   };
 
   // Safety: if user re-enters and mousemove fires before mouseenter, create cursor at first move
@@ -1196,10 +1519,53 @@ function initCustomCursor() {
     }
   };
 
+  // Aggressive cursor visibility enforcement
+  const enforceCursorVisibility = () => {
+    if (isActive && cursor) {
+      enableGlobalCursorHide();
+      cursor.style.zIndex = '999999';
+      cursor.style.pointerEvents = 'none';
+      cursor.style.position = 'fixed';
+      cursor.style.display = 'block';
+      cursor.style.visibility = 'visible';
+      cursor.style.opacity = '1';
+    }
+  };
+
+  // Enhanced mouse event handling
+  const handleMouseOver = (e) => {
+    enforceCursorVisibility();
+  };
+
+  const handleMouseEnter = (e) => {
+    enforceCursorVisibility();
+  };
+
+  // Monitor for search suggestions and ensure cursor visibility
+  const monitorSearchSuggestions = () => {
+    const searchSuggestions = document.querySelectorAll('[class*="suggestion"], [class*="dropdown"], [class*="menu"], [role="listbox"], [role="option"]');
+    searchSuggestions.forEach(suggestion => {
+      suggestion.addEventListener('mouseenter', enforceCursorVisibility);
+      suggestion.addEventListener('mouseover', enforceCursorVisibility);
+      suggestion.addEventListener('mouseleave', enforceCursorVisibility);
+    });
+  };
+
+  // Monitor for dynamically created elements
+  const observer = new MutationObserver(() => {
+    monitorSearchSuggestions();
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
+
+  // Continuous cursor visibility check
+  setInterval(enforceCursorVisibility, 100);
+
   // Use pointer events for better device coverage
   document.addEventListener('mouseenter', onEnter);
   document.addEventListener('mouseleave', onLeave);
   document.addEventListener('mousemove', onFirstMoveCreate, { passive: true });
+  document.addEventListener('mouseover', handleMouseOver, { passive: true });
+  document.addEventListener('mouseenter', handleMouseEnter, { passive: true });
 
   // Cleanup function
   return () => {
@@ -1207,6 +1573,8 @@ function initCustomCursor() {
     document.removeEventListener('mouseleave', onLeave);
     document.removeEventListener('mousemove', onFirstMoveCreate);
     document.removeEventListener('mousemove', handleMouseMove);
+    document.removeEventListener('mouseover', handleMouseOver);
+    document.removeEventListener('mouseenter', handleMouseEnter);
     if (rafId) cancelAnimationFrame(rafId);
     destroyCursor();
   };
@@ -1301,6 +1669,176 @@ function initPageAnimations() {
       }
     });
   }
+
+  // Background micro-parallax (disabled per feedback)
+  (function disableParallax() {
+    document.body.style.backgroundPosition = 'center';
+  })();
+
+  // Immediate box activation when comet touches
+  (function setupProximityGlow() {
+    const targets = [document.getElementById('search-bar'), document.getElementById('links-btn'), document.getElementById('task-input'), document.getElementById('weather')].filter(Boolean);
+    let glowTimer = null;
+    
+    const applyGlow = (el, isTouching) => {
+      if (!el) return;
+      el.style.transition = 'box-shadow 0.1s ease, transform 0.1s ease'; // Faster transition
+      if (isTouching) {
+        el.style.boxShadow = '0 0 40px rgba(32,201,151,1), 0 0 80px rgba(32,201,151,0.7)'; // Stronger glow
+        el.style.transform = 'scale(1.04)'; // Slightly bigger scale
+        console.log('Box activated:', el.id);
+      } else {
+        el.style.boxShadow = '';
+        el.style.transform = 'scale(1)';
+      }
+    };
+    
+    const check = () => {
+      if (!isActive || !cursor) { glowTimer = requestAnimationFrame(check); return; }
+      
+      const cometRadius = 17; // Full radius of the comet circle
+      
+      targets.forEach(t => {
+        const r = t.getBoundingClientRect();
+        
+        // Use actual cursor position from the cursor element
+        const cursorRect = cursor.getBoundingClientRect();
+        const cursorCenterX = cursorRect.left + cursorRect.width / 2;
+        const cursorCenterY = cursorRect.top + cursorRect.height / 2;
+        
+        // Check if ANY part of the comet circle overlaps with the element
+        const cometLeft = cursorCenterX - cometRadius;
+        const cometRight = cursorCenterX + cometRadius;
+        const cometTop = cursorCenterY - cometRadius;
+        const cometBottom = cursorCenterY + cometRadius;
+        
+        const elementLeft = r.left;
+        const elementRight = r.right;
+        const elementTop = r.top;
+        const elementBottom = r.bottom;
+        
+        // Check for ANY overlap between the full circle and element
+        const horizontalOverlap = cometRight > elementLeft && cometLeft < elementRight;
+        const verticalOverlap = cometBottom > elementTop && cometTop < elementBottom;
+        
+        const isTouching = horizontalOverlap && verticalOverlap;
+        
+        // Apply glow immediately when touching
+        applyGlow(t, isTouching);
+      });
+      glowTimer = requestAnimationFrame(check);
+    };
+    glowTimer = requestAnimationFrame(check);
+  })();
+  
+  // Idle attract: gentle comet orbit after 10s idle
+  (function setupIdleAttract() {
+    let lastMoveTime = performance.now();
+    let orbitCenterX = window.innerWidth / 2;
+    let orbitCenterY = window.innerHeight / 2;
+    let orbitRadius = 100;
+    let orbitAngle = 0;
+    let orbitSpeed = 0.015;
+    let isOrbiting = false;
+    
+    const updateIdleAttract = () => {
+      const now = performance.now();
+      const timeSinceMove = now - lastMoveTime;
+      
+      if (timeSinceMove > 10000 && !isOrbiting && isActive) { // 10 seconds idle
+        isOrbiting = true;
+        orbitAngle = Math.atan2(cursorY - orbitCenterY, cursorX - orbitCenterX);
+        console.log('Starting idle orbit');
+      } else if (timeSinceMove < 10000 && isOrbiting) {
+        isOrbiting = false;
+        console.log('Stopping idle orbit');
+      }
+      
+      if (isOrbiting && isActive) {
+        orbitAngle += orbitSpeed;
+        const targetX = orbitCenterX + Math.cos(orbitAngle) * orbitRadius;
+        const targetY = orbitCenterY + Math.sin(orbitAngle) * orbitRadius;
+        
+        // Smoothly move cursor towards orbit
+        mouseX += (targetX - mouseX) * 0.03;
+        mouseY += (targetY - mouseY) * 0.03;
+      }
+      
+      requestAnimationFrame(updateIdleAttract);
+    };
+    
+    document.addEventListener('mousemove', () => {
+      lastMoveTime = performance.now();
+    }, { passive: true });
+    
+    updateIdleAttract();
+  })();
+  
+  // Cursor gravity wells: subtle magnetic pull near interactive elements
+  (function setupGravityWells() {
+    const gravityElements = document.querySelectorAll('a, button, #search-bar, #task-input, #links-btn, #weather');
+    let gravityTimer = null;
+    
+    const applyGravity = () => {
+      if (!isActive) { gravityTimer = requestAnimationFrame(applyGravity); return; }
+      
+      let totalPullX = 0;
+      let totalPullY = 0;
+      
+      gravityElements.forEach(el => {
+        const r = el.getBoundingClientRect();
+        const centerX = r.left + r.width / 2;
+        const centerY = r.top + r.height / 2;
+        const distance = Math.hypot(cursorX - centerX, cursorY - centerY);
+        const maxDistance = Math.max(r.width, r.height) / 2 + 80;
+        
+        if (distance < maxDistance && distance > 0) {
+          const pullStrength = (1 - distance / maxDistance) * 0.4; // stronger pull
+          const pullX = (centerX - cursorX) * pullStrength;
+          const pullY = (centerY - cursorY) * pullStrength;
+          totalPullX += pullX;
+          totalPullY += pullY;
+        }
+      });
+      
+      // Apply gravity pull to mouse position
+      if (Math.abs(totalPullX) > 0.1 || Math.abs(totalPullY) > 0.1) {
+        mouseX += totalPullX * 0.15;
+        mouseY += totalPullY * 0.15;
+      }
+      
+      gravityTimer = requestAnimationFrame(applyGravity);
+    };
+    
+    gravityTimer = requestAnimationFrame(applyGravity);
+  })();
+  
+  // Task zoom effect to show clickability (no scrollbar, no cutoff)
+  (function setupTaskZoom() {
+    const taskList = document.getElementById('task-list');
+    if (!taskList) return;
+    
+    // Hide scrollbar and allow overflow for zoom
+    taskList.style.overflow = 'visible';
+    taskList.style.zIndex = '1000';
+    
+    taskList.addEventListener('mouseenter', (e) => {
+      if (e.target.tagName === 'LI') {
+        e.target.style.transition = 'transform 0.2s ease';
+        e.target.style.transform = 'scale(1.05)';
+        e.target.style.cursor = 'none';
+        e.target.style.zIndex = '1001';
+        e.target.style.position = 'relative';
+      }
+    }, true);
+    
+    taskList.addEventListener('mouseleave', (e) => {
+      if (e.target.tagName === 'LI') {
+        e.target.style.transform = 'scale(1)';
+        e.target.style.zIndex = 'auto';
+      }
+    }, true);
+  })();
 }
 
 // Initialize cursor on page load with proper persistence
