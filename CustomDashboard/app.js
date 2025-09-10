@@ -819,146 +819,160 @@ function initCustomCursor() {
     return;
   }
 
-  // Hide default cursor
-  document.body.style.cursor = 'none';
+  let rafId = null;
+  let cursor = null;
+  let trailElements = [];
+  let mouseX = 0;
+  let mouseY = 0;
+  let cursorX = 0;
+  let cursorY = 0;
+  let isActive = false;
 
-  // Create main cursor element (large teal-green circle)
-  const cursor = document.createElement('div');
-  cursor.className = 'custom-cursor-main';
-  cursor.style.cssText = `
-    position: fixed;
-    width: 24px;
-    height: 24px;
-    background: linear-gradient(135deg, #20c997 0%, #0d8b63 100%);
-    border-radius: 50%;
-    pointer-events: none;
-    z-index: 10000;
-    transform: translate(-50%, -50%);
-    box-shadow: 0 0 20px rgba(32, 201, 151, 0.8);
-    transition: transform 0.1s ease-out;
-  `;
-  document.body.appendChild(cursor);
+  const createCursor = (startX, startY) => {
+    // Hide default cursor only while active
+    document.body.style.cursor = 'none';
 
-  // Create trail elements (smaller gradient circles)
-  const trailCount = 8;
-  const trailElements = [];
-
-  for (let i = 0; i < trailCount; i++) {
-    const trail = document.createElement('div');
-    trail.className = 'cursor-trail';
-
-    // Calculate size and opacity - smaller and darker as we go back
-    const size = 20 - (i * 2); // Starts at 20px, decreases by 2px each
-    const opacity = 0.8 - (i * 0.1); // Starts at 0.8, decreases by 0.1 each
-
-    trail.style.cssText = `
+    // Main cursor (bigger, teal)
+    cursor = document.createElement('div');
+    cursor.className = 'custom-cursor-main';
+    cursor.style.cssText = `
       position: fixed;
-      width: ${size}px;
-      height: ${size}px;
-      background: linear-gradient(135deg, 
-        rgba(32, 201, 151, ${opacity}) 0%, 
-        rgba(13, 139, 99, ${opacity}) 100%);
+      width: 34px;
+      height: 34px;
+      background: radial-gradient(circle at 35% 35%, #34e4c2 0%, #20c997 45%, #0d8b63 100%);
       border-radius: 50%;
       pointer-events: none;
-      z-index: 9999;
+      z-index: 10000;
       transform: translate(-50%, -50%);
-      transition: transform 0.2s ease-out;
+      box-shadow: 0 0 28px rgba(32, 201, 151, 0.9);
+      transition: opacity 120ms ease, transform 0.12s ease-out;
+      opacity: 0;
     `;
+    document.body.appendChild(cursor);
 
-    document.body.appendChild(trail);
-    trailElements.push({
-      element: trail,
-      x: window.innerWidth / 2,
-      y: window.innerHeight / 2,
-      targetX: window.innerWidth / 2,
-      targetY: window.innerHeight / 2
+    // Trail (tapered, darker along tail)
+    const trailCount = 14;
+    trailElements = [];
+    for (let i = 0; i < trailCount; i++) {
+      const trail = document.createElement('div');
+      trail.className = 'cursor-trail';
+
+      // Size decreases and gets darker
+      const size = Math.max(6, 28 - i * 1.6);
+      const darkness = Math.min(1, 0.15 + i * 0.055); // more dark further back
+      const opacity = Math.max(0.08, 0.9 - i * 0.055);
+
+      trail.style.cssText = `
+        position: fixed;
+        width: ${size}px;
+        height: ${size * 0.86}px;
+        background: linear-gradient(135deg,
+          rgba(${Math.round(52 - 20 * darkness)}, ${Math.round(228 - 80 * darkness)}, ${Math.round(194 - 60 * darkness)}, ${opacity}) 0%,
+          rgba(${Math.round(13 + 10 * darkness)}, ${Math.round(139 - 40 * darkness)}, ${Math.round(99 - 50 * darkness)}, ${opacity}) 100%);
+        border-radius: 50% 60% 70% 60% / 60% 60% 50% 60%;
+        pointer-events: none;
+        z-index: 9999;
+        transform: translate(-50%, -50%) rotate(0deg) scale(1);
+        transition: opacity 150ms ease;
+        opacity: 0;
+      `;
+      document.body.appendChild(trail);
+      trailElements.push({ element: trail, x: startX, y: startY, targetX: startX, targetY: startY });
+    }
+
+    // Seed positions at pointer
+    mouseX = cursorX = startX;
+    mouseY = cursorY = startY;
+
+    // Fade in
+    requestAnimationFrame(() => {
+      cursor.style.opacity = '1';
+      trailElements.forEach(t => (t.element.style.opacity = '1'));
     });
-  }
+  };
 
-  // Mouse position tracking
-  let mouseX = window.innerWidth / 2;
-  let mouseY = window.innerHeight / 2;
-  let cursorX = mouseX;
-  let cursorY = mouseY;
+  const destroyCursor = () => {
+    if (!cursor) return;
+    // Fade out, then remove
+    cursor.style.opacity = '0';
+    trailElements.forEach(t => (t.element.style.opacity = '0'));
+    setTimeout(() => {
+      cursor && cursor.remove();
+      trailElements.forEach(t => t.element.remove());
+      cursor = null;
+      trailElements = [];
+      document.body.style.cursor = '';
+    }, 160);
+  };
 
   const handleMouseMove = (e) => {
     mouseX = e.clientX;
     mouseY = e.clientY;
   };
 
-  document.addEventListener('mousemove', handleMouseMove);
-
-  // Animation loop
   const animate = () => {
-    // Smooth main cursor movement
-    cursorX += (mouseX - cursorX) * 0.3;
-    cursorY += (mouseY - cursorY) * 0.3;
+    if (!cursor) return;
 
-    // Update main cursor position
+    // velocity for orientation
+    const vx = mouseX - cursorX;
+    const vy = mouseY - cursorY;
+    const angle = Math.atan2(vy, vx) * (180 / Math.PI);
+
+    // Smooth main cursor movement
+    cursorX += (mouseX - cursorX) * 0.28;
+    cursorY += (mouseY - cursorY) * 0.28;
     cursor.style.left = `${cursorX}px`;
     cursor.style.top = `${cursorY}px`;
 
-    // Update trail positions with smooth following
+    // Trail follows
     trailElements.forEach((trail, index) => {
       if (index === 0) {
-        // First trail follows main cursor directly
         trail.targetX = cursorX;
         trail.targetY = cursorY;
       } else {
-        // Each subsequent trail follows the previous one
-        const prevTrail = trailElements[index - 1];
-        trail.targetX = prevTrail.x;
-        trail.targetY = prevTrail.y;
+        const prev = trailElements[index - 1];
+        trail.targetX = prev.x;
+        trail.targetY = prev.y;
       }
-
-      // Smooth movement for each trail
-      trail.x += (trail.targetX - trail.x) * (0.2 + (index * 0.05));
-      trail.y += (trail.targetY - trail.y) * (0.2 + (index * 0.05));
-
-      // Update trail position
+      const followEase = 0.22 + index * 0.04;
+      trail.x += (trail.targetX - trail.x) * followEase;
+      trail.y += (trail.targetY - trail.y) * followEase;
+      const scale = Math.max(0.5, 1 - index * 0.03);
       trail.element.style.left = `${trail.x}px`;
       trail.element.style.top = `${trail.y}px`;
-
-      // Add scaling effect for depth
-      const scale = 0.6 + (index * 0.05);
-      trail.element.style.transform = `translate(-50%, -50%) scale(${scale})`;
+      trail.element.style.transform = `translate(-50%, -50%) rotate(${angle}deg) scale(${scale}, ${scale * 0.92})`;
     });
 
-    requestAnimationFrame(animate);
+    rafId = requestAnimationFrame(animate);
   };
 
-  // Start animation
-  animate();
-
-  // Add hover effects for interactive elements
-  const hoverElements = document.querySelectorAll('a, button, .links-btn, .add-link-btn, #search-bar, #task-input');
-
-  const handleHoverStart = () => {
-    cursor.style.transform = 'translate(-50%, -50%) scale(1.3)';
-    cursor.style.background = 'linear-gradient(135deg, #38d39f 0%, #1aac7a 100%)';
+  const onEnter = (e) => {
+    if (isActive) return;
+    isActive = true;
+    createCursor(e.clientX, e.clientY);
+    document.addEventListener('mousemove', handleMouseMove, { passive: true });
+    rafId = requestAnimationFrame(animate);
   };
 
-  const handleHoverEnd = () => {
-    cursor.style.transform = 'translate(-50%, -50%) scale(1)';
-    cursor.style.background = 'linear-gradient(135deg, #20c997 0%, #0d8b63 100%)';
+  const onLeave = () => {
+    if (!isActive) return;
+    isActive = false;
+    document.removeEventListener('mousemove', handleMouseMove);
+    if (rafId) cancelAnimationFrame(rafId);
+    destroyCursor();
   };
 
-  hoverElements.forEach(el => {
-    el.addEventListener('mouseenter', handleHoverStart);
-    el.addEventListener('mouseleave', handleHoverEnd);
-  });
+  // Use pointer events for better device coverage
+  document.addEventListener('mouseenter', onEnter);
+  document.addEventListener('mouseleave', onLeave);
 
   // Cleanup function
   return () => {
+    document.removeEventListener('mouseenter', onEnter);
+    document.removeEventListener('mouseleave', onLeave);
     document.removeEventListener('mousemove', handleMouseMove);
-    document.body.style.cursor = '';
-    cursor.remove();
-    trailElements.forEach(trail => trail.element.remove());
-
-    hoverElements.forEach(el => {
-      el.removeEventListener('mouseenter', handleHoverStart);
-      el.removeEventListener('mouseleave', handleHoverEnd);
-    });
+    if (rafId) cancelAnimationFrame(rafId);
+    destroyCursor();
   };
 }
 
